@@ -292,7 +292,7 @@ class path_finding(object):
             if self.front_distance > 0.25 and not self.something_in_hand:
                 self.send_movement(min(0.1, 0.1 * self.front_distance), angular / 5)
 
-            # far from object, getting AR
+            # far from object, going to trash
             elif self.front_distance > 0.5 and self.something_in_hand:
                 self.send_movement(min(0.1, 0.1 * self.front_distance), angular / 5)
 
