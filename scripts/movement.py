@@ -44,9 +44,9 @@ class Movement:
 
     def spin_around(self):
         rospy.loginfo("Spinning the robot...")
-        self.twist.angular.z = 0.5  # Set an appropriate spin speed
+        self.twist.angular.z = 0.5 # spin speed
         self.cmd_vel_pub.publish(self.twist)
-        rospy.sleep(2)  # Spin for 2 seconds (adjust duration as needed)
+        rospy.sleep(2)  # Spin for 2 seconds
         self.twist.angular.z = 0  # Stop the spin
         self.cmd_vel_pub.publish(self.twist)
         rospy.loginfo("Finished spinning.")
@@ -54,7 +54,7 @@ class Movement:
     def move_towards_object(self, distance):
         rospy.loginfo(f"Moving towards the object by {distance} meters...")
         self.twist.linear.x = 0.2  # Set forward speed
-        rospy.sleep(distance / 0.2)  # Calculate time based on distance and speed
+        rospy.sleep(distance / 0.2)
         self.twist.linear.x = 0  # Stop moving forward
         self.cmd_vel_pub.publish(self.twist)
         rospy.loginfo("Reached the object.")
@@ -62,7 +62,7 @@ class Movement:
     def throw_away(self):
         rospy.loginfo("Dumping the object into the bin at the back...")
         
-        # Adjust the arm to a position behind the robot, suitable for dumping into the bin
+        # Adjust the arm to a position behind the robot, suitable for dumping into the bin (with testing)
         dump_position = [0, -math.radians(30), -math.radians(10), math.radians(0)]  # Example: adjust angles as necessary
         self.move_group_arm.go(dump_position, wait=True)
         rospy.sleep(5)
@@ -88,6 +88,17 @@ class Movement:
     def scan_callback(self):
         '''
         this is a subscriber to the robot's lidar. 
+        '''
+        pass
+
+    def run(self):
+        '''
+        main logic:
+        - first spin around to enviroment
+        - once trash is detected, move_towards_object
+            - pick_up_object
+            - throw_away
+        - repeat until interup
         '''
         pass
 
