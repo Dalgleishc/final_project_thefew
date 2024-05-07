@@ -132,13 +132,25 @@ def update_yaml(data_yaml):
 
     print(f'\n\t{green_color_code}Finished updating Yaml{reset_color_code}\n')
 
+def get_model_weight(yolo_dir):
+    weights_dir = os.path.join(yolo_dir, 'weights')
+    os.makedirs(weights_dir, exist_ok=True)
+    weights_path = os.path.join(weights_dir, 'yolov5m.pt')
+
+    urllib.request.urlretrieve("https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5l.pt", weights_path)
+
+    return os.path.join(yolo_dir, 'weights', 'yolov5l.pt')
+
 # increase epochs later
-def train_yolov5(yolo_dir, data_yaml_path, model_cfg='yolov5s.yaml', weights='yolov5s.pt', img_size=640, batch_size=16, epochs=1):
+def train_yolov5(yolo_dir, weights, data_yaml_path, img_size=640, batch_size=16, epochs=100):
     
     print(f'{"-" * 100}\n\n\t{yellow_color_code}Training model{reset_color_code}\n')
 
     # Path to the YOLOv5 training script
     train_script = os.path.join(yolo_dir, 'train.py')
+
+    # Path to the model_cfg file
+    model_cfg = os.path.join(yolo_dir, 'models', 'yolov5l.yaml')
 
     # Construct the command
     command = [
@@ -155,15 +167,6 @@ def train_yolov5(yolo_dir, data_yaml_path, model_cfg='yolov5s.yaml', weights='yo
     subprocess.run(command)
 
     print(f'\n\t{green_color_code}Finished training model{reset_color_code}\n')
-
-def get_model_weight(yolo_dir):
-    weights_dir = os.path.join(yolo_dir, 'weights')
-    os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, 'yolov5m.pt')
-
-    urllib.request.urlretrieve("https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5m.pt", weights_path)
-
-    return os.path.join(yolo_dir, 'weights', 'yolov5m.pt')
 
 def get_best_weights(yolo_dir, exp_num):
     # Path to the specific experiment directory
@@ -208,30 +211,30 @@ def run_live_inference(yolo_dir, weights_path, img_size=640):
     # Run the inference process
     subprocess.run(command)
 
-validation_dataset = load_dataset_with_retry("validation",5,2)
-train_dataset = load_dataset_with_retry("train",5,2)
-#test_dataset = load_dataset_with_retry("test",5,2)
+# validation_dataset = load_dataset_with_retry("validation",5,2)
+# train_dataset = load_dataset_with_retry("train",5,2)
+# #test_dataset = load_dataset_with_retry("test",5,2)
 
-print("\n")
+# print("\n")
 
-export_dataset(export_dir, validation_dataset, "validation")
-export_dataset(export_dir, train_dataset, "train")
-#export_dataset(export_dir, test_dataset, "test")
+# export_dataset(export_dir, validation_dataset, "validation")
+# export_dataset(export_dir, train_dataset, "train")
+# #export_dataset(export_dir, test_dataset, "test")
 
 update_yaml(data_yaml)
 
-train_yolov5(yolo_dir, data_yaml)
-
 # Best weights on given model
-weights_path = get_best_weights(yolo_dir,1)
+weights_path = get_best_weights(yolo_dir,9)
 
 # Model weight
 model_weight = get_model_weight(yolo_dir)
 
-# Test image
-source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
+#train_yolov5(yolo_dir, weights_path, data_yaml)
 
-run_inference_image(yolo_dir, model_weight, source_path)
+# # Test image
+# source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
+
+# run_inference_image(yolo_dir, weights_path, source_path)
 
 try:
     run_live_inference(yolo_dir, model_weight)
