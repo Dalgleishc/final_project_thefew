@@ -1,5 +1,7 @@
 import os, random, shutil, logging, zipfile, yaml, PIL, torch, random, time, sys, warnings, subprocess
 
+import urllib.request
+
 import xml.etree.ElementTree as ET
 import numpy as np
 import matplotlib as plt
@@ -24,7 +26,20 @@ reset_color_code = "\033[0m"
 green_color_code = "\033[92m"
 yellow_color_code = "\033[93m"
 
-export_path_prefix = os.path.dirname(__file__) + "/yolov5-dataset/"
+# Get the current file's directory
+current_dir = os.path.dirname(__file__)
+
+# Get the parent directory
+parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir)) 
+
+# Set the export directory
+export_dir = os.path.join(parent_dir, "yolov5-export")
+
+# Set the YAML file path
+data_yaml = os.path.join(export_dir, "dataset.yaml")
+
+# Set the yolo submodule directory
+yolo_dir = os.path.join(parent_dir, "yolov5")
 
 logging.getLogger().setLevel(logging.CRITICAL)
 
@@ -73,18 +88,9 @@ def load_dataset_with_retry(split_type, max_retries, retry_delay):
     print(f"\n\n{red_color_code}Error: Maximum number of retries ({max_retries}) has been reached. Failed to load {split_type} dataset.{reset_color_code}\n")
     sys.exit()
 
-def export_dataset(dir, dataset, split_type):
+def export_dataset(export_dir, dataset, split_type):
 
     print(f'{"-" * 100}\n\n\tExporting dataset: {yellow_color_code}{split_type}{reset_color_code}\n')
-
-    # Get the current file's directory
-    current_dir = os.path.dirname(__file__)
-
-    # Get the parent directory
-    parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir)) 
-
-    # Set the export directory
-    export_dir = os.path.join(parent_dir, "yolov5-export")
 
     os.makedirs(export_dir, exist_ok=True)
     
@@ -126,14 +132,17 @@ def update_yaml(data_yaml):
 
     print(f'\n\t{green_color_code}Finished updating Yaml{reset_color_code}\n')
 
-def train_yolov5(yolo_dir, data_yaml_path, model_cfg='yolov5s.yaml', weights='yolov5s.pt', img_size=640, batch_size=16, epochs=100):
+# increase epochs later
+def train_yolov5(yolo_dir, data_yaml_path, model_cfg='yolov5s.yaml', weights='yolov5s.pt', img_size=640, batch_size=16, epochs=1):
     
+    print(f'{"-" * 100}\n\n\t{yellow_color_code}Training model{reset_color_code}\n')
+
     # Path to the YOLOv5 training script
     train_script = os.path.join(yolo_dir, 'train.py')
 
     # Construct the command
     command = [
-        'python', train_script,
+        'python3', train_script,
         '--img', str(img_size),
         '--batch', str(batch_size),
         '--epochs', str(epochs),
@@ -145,32 +154,91 @@ def train_yolov5(yolo_dir, data_yaml_path, model_cfg='yolov5s.yaml', weights='yo
     # Run the training process
     subprocess.run(command)
 
-# Get the current file's directory
-current_dir = os.path.dirname(__file__)
+    print(f'\n\t{green_color_code}Finished training model{reset_color_code}\n')
 
-# Get the parent directory
-parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir)) 
+def get_model_weight(yolo_dir):
+    weights_dir = os.path.join(yolo_dir, 'weights')
+    os.makedirs(weights_dir, exist_ok=True)
+    weights_path = os.path.join(weights_dir, 'yolov5m.pt')
 
-# Set the export directory
-export_dir = os.path.join(parent_dir, "yolov5-export")
+    urllib.request.urlretrieve("https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5m.pt", weights_path)
 
-# Set the YAML file path
-data_yaml = os.path.join(export_dir, "dataset.yaml")
+    return os.path.join(yolo_dir, 'weights', 'yolov5m.pt')
 
-# Set the yolo submodule directory
-yolo_dir = os.path.join(parent_dir, "yolov5")
+def get_best_weights(yolo_dir, exp_num):
+    # Path to the specific experiment directory
+    exp_dir = f'exp{exp_num}'
+    weights_path = os.path.join(yolo_dir, 'runs', 'train', exp_dir, 'weights', 'best.pt')
+    
+    # Check if the best.pt file exists in the specified experiment
+    if os.path.exists(weights_path):
+        return weights_path
+    else:
+        return None
 
-# validation_dataset = load_dataset_with_retry("validation",5,2)
-# train_dataset = load_dataset_with_retry("train",5,2)
-# #test_dataset = load_dataset_with_retry("test",5,2)
+def run_inference_image(yolo_dir, weights_path, source_path, img_size=640, conf_thres=0.25, iou_thres=0.45):
+    # Path to the YOLOv5 detection script
+    detect_script = os.path.join(yolo_dir, 'detect.py')
+    
+    # Construct the command
+    command = [
+        'python3', detect_script,
+        '--weights', weights_path,
+        '--source', source_path,
+        '--img', str(img_size),
+        '--conf-thres', str(conf_thres),
+        '--iou-thres', str(iou_thres)
+    ]
+    
+    # Run the inference process
+    subprocess.run(command)
 
-# export_dataset(validation_dataset, "validation")
-# export_dataset(train_dataset, "train")
-# #export_dataset(test_dataset, "test")
+def run_live_inference(yolo_dir, weights_path, img_size=640):
+    # Path to the YOLOv5 detection script
+    detect_script = os.path.join(yolo_dir, 'detect.py')
+    
+    # Construct the command to use the live camera feed
+    command = [
+        'python3', detect_script,
+        '--weights', weights_path,
+        '--source', '0',
+        '--img', str(img_size)
+    ]
+    
+    # Run the inference process
+    subprocess.run(command)
+
+validation_dataset = load_dataset_with_retry("validation",5,2)
+train_dataset = load_dataset_with_retry("train",5,2)
+#test_dataset = load_dataset_with_retry("test",5,2)
+
+print("\n")
+
+export_dataset(export_dir, validation_dataset, "validation")
+export_dataset(export_dir, train_dataset, "train")
+#export_dataset(export_dir, test_dataset, "test")
 
 update_yaml(data_yaml)
 
-#train_yolov5(yolo_dir, data_yaml)
+train_yolov5(yolo_dir, data_yaml)
+
+# Best weights on given model
+weights_path = get_best_weights(yolo_dir,1)
+
+# Model weight
+model_weight = get_model_weight(yolo_dir)
+
+# Test image
+source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
+
+run_inference_image(yolo_dir, model_weight, source_path)
+
+try:
+    run_live_inference(yolo_dir, model_weight)
+    while True:
+        pass
+except KeyboardInterrupt:
+    print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
 
 # try:
 #     session = fo.launch_app(validation_dataset)
@@ -181,4 +249,3 @@ update_yaml(data_yaml)
 # except KeyboardInterrupt:
 #     # Handle keyboard interrupt (Ctrl+C)
 #     print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
-
