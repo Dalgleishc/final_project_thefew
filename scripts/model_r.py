@@ -168,6 +168,7 @@ def train_yolov5(yolo_dir, weights, data_yaml_path, img_size=640, batch_size=16,
 
     print(f'\n\t{green_color_code}Finished training model{reset_color_code}\n')
 
+# only if in yolo file
 def get_best_weights(yolo_dir, exp_num):
     # Path to the specific experiment directory
     exp_dir = f'exp{exp_num}'
@@ -178,6 +179,17 @@ def get_best_weights(yolo_dir, exp_num):
         return weights_path
     else:
         return None
+    
+# return the path of the best.pt file in the directory
+def get_trained_model():
+    
+    # Get the current file's directory
+    current_dir = os.path.dirname(__file__)
+
+    # Get the parent directory
+    parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
+
+    return os.path.join(parent_dir,"best.pt")
 
 def run_inference_image(yolo_dir, weights_path, source_path, img_size=640, conf_thres=0.25, iou_thres=0.45):
     # Path to the YOLOv5 detection script
@@ -221,13 +233,13 @@ def run_live_inference(yolo_dir, weights_path, img_size=640):
 # export_dataset(export_dir, train_dataset, "train")
 # #export_dataset(export_dir, test_dataset, "test")
 
-update_yaml(data_yaml)
+# update_yaml(data_yaml)
 
-# Best weights on given model
-weights_path = get_best_weights(yolo_dir,9)
+# # Best weights on given model
+# weights_path = get_best_weights(yolo_dir,9)
 
-# Model weight
-model_weight = get_model_weight(yolo_dir)
+# # Model weight
+# model_weight = get_model_weight(yolo_dir)
 
 #train_yolov5(yolo_dir, weights_path, data_yaml)
 
@@ -236,12 +248,14 @@ model_weight = get_model_weight(yolo_dir)
 
 # run_inference_image(yolo_dir, weights_path, source_path)
 
-try:
-    run_live_inference(yolo_dir, model_weight)
-    while True:
-        pass
-except KeyboardInterrupt:
-    print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
+print(f"Get trained weights:\t{get_trained_model()}")
+
+# try:
+#     run_live_inference(yolo_dir, model_weight)
+#     while True:
+#         pass
+# except KeyboardInterrupt:
+#     print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
 
 # try:
 #     session = fo.launch_app(validation_dataset)
