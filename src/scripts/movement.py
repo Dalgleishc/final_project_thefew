@@ -44,31 +44,24 @@ class Movement:
             return None
         return min_distance, min_angle
 
-    def approach_closest_object(self, min_distance, min_angle):
-        angular_speed = 0.3
-        linear_speed = 0.1
-        target_angle = min_angle - 180 if min_angle > 180 else min_angle
-        rospy.loginfo(f"Approaching object at angle {min_angle} with distance {min_distance}")
-        while not rospy.is_shutdown():
-            if min_distance < self.stop_distance:
-                self.twist.linear.x = 0
-                self.twist.angular.z = 0
-                self.cmd_vel_pub.publish(self.twist)
-                rospy.loginfo("Object is within stopping distance, stopping.")
-                break
-            self.twist.linear.x = linear_speed
-            self.twist.angular.z = -angular_speed if target_angle > 0 else angular_speed
+    def approach_closest_object(self, min_distance):
+        rospy.loginfo(f"Approaching object with distance {min_distance}")
+        while not rospy.is_shutdown() and min_distance >= self.stop_distance:
+            self.twist.linear.x = 0.1  # Move forward at a constant speed
+            self.twist.angular.z = 0
             self.cmd_vel_pub.publish(self.twist)
             rospy.sleep(0.1)
             closest_object = self.find_closest_object()
             if closest_object:
-                min_distance, min_angle = closest_object
-                target_angle = min_angle - 180 if min_angle > 180 else min_angle
+                min_distance, _ = closest_object
+        self.twist.linear.x = 0
+        self.cmd_vel_pub.publish(self.twist)
+        rospy.loginfo("Stopped close to the object.")
 
     def pick_up_object(self):
         rospy.loginfo("Picking up the object...")
-        # Reach for the cup
-        self.move_group_arm.go([0, math.radians(30), math.radians(45), math.radians(0)], wait=True)
+        # Dip the arm further to pick up the cup
+        self.move_group_arm.go([0, math.radians(45), math.radians(60), math.radians(0)], wait=True)
         rospy.sleep(2)
         # Grip the cup
         self.move_group_gripper.go([-0.01, -0.01], wait=True)
@@ -81,18 +74,16 @@ class Movement:
         rospy.loginfo("Object picked up successfully.")
 
     def run(self):
-        rate = rospy.Rate(10)  # 10 Hz
-        while not rospy.is_shutdown():
-            closest_object = self.find_closest_object()
-            if closest_object:
-                min_distance, min_angle = closest_object
-                rospy.loginfo(f"Closest object at distance: {min_distance}, angle: {min_angle}")
-                self.approach_closest_object(min_distance, min_angle)
-                self.pick_up_object()
-                break  # Stop after picking up the object
-            else:
-                rospy.loginfo("No objects detected.")
-            rate.sleep()
+        rospy.loginfo("Starting the robot...")
+        rospy.sleep(2)  # Wait for 2 seconds to stabilize
+        closest_object = self.find_closest_object()
+        if closest_object:
+            min_distance, _ = closest_object
+            rospy.loginfo(f"Closest object at distance: {min_distance}")
+            self.approach_closest_object(min_distance)
+            self.pick_up_object()
+        else:
+            rospy.loginfo("No objects detected.")
 
 if __name__ == "__main__":
     executor = Movement()
