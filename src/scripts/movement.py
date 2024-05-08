@@ -11,6 +11,7 @@ class Movement:
     '''
     def __init__(self):
         rospy.init_node('movement_controller')
+        rospy.loginfo("Initializing Movement Node")
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.trash_detect = rospy.Subscriber('camera/rgb/image_raw', Image, self.detect_trash)
         self.scan_subscriber = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
@@ -82,7 +83,7 @@ class Movement:
         '''
         This is a placeholder for the actual trash detection logic
         '''
-        pass
+        rospy.loginfo("Detecting trash...")
 
     def scan_callback(self, data):
         '''
