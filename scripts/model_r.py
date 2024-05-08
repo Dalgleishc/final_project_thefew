@@ -135,7 +135,7 @@ def update_yaml(data_yaml):
 def get_model_weight(yolo_dir):
     weights_dir = os.path.join(yolo_dir, 'weights')
     os.makedirs(weights_dir, exist_ok=True)
-    weights_path = os.path.join(weights_dir, 'yolov5m.pt')
+    weights_path = os.path.join(weights_dir, 'yolov5l.pt')
 
     urllib.request.urlretrieve("https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5l.pt", weights_path)
 
@@ -238,8 +238,8 @@ def run_live_inference(yolo_dir, weights_path, img_size=640):
 # # Best weights on given model
 # weights_path = get_best_weights(yolo_dir,9)
 
-# # Model weight
-# model_weight = get_model_weight(yolo_dir)
+# Model weight
+model_weight = get_model_weight(yolo_dir)
 
 #train_yolov5(yolo_dir, weights_path, data_yaml)
 
@@ -250,12 +250,12 @@ def run_live_inference(yolo_dir, weights_path, img_size=640):
 
 print(f"Get trained weights:\t{get_trained_model()}")
 
-# try:
-#     run_live_inference(yolo_dir, model_weight)
-#     while True:
-#         pass
-# except KeyboardInterrupt:
-#     print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
+try:
+    run_live_inference(yolo_dir, model_weight)
+    while True:
+        pass
+except KeyboardInterrupt:
+    print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
 
 # try:
 #     session = fo.launch_app(validation_dataset)
