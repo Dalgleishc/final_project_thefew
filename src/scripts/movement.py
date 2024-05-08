@@ -93,15 +93,18 @@ class Movement:
 
     def run(self):
         '''
-        main logic:
-        - first spin around to enviroment
-        - once trash is detected, move_towards_object
-            - pick_up_object
-            - throw_away
-        - repeat until interup
+        Main logic:
+        - Spin around to scan the environment
+        - Move towards the closest object
+        - Pick up the object
         '''
-        pass
+        while not rospy.is_shutdown():
+            self.spin_around()
+            # Implement logic to find the closest object and move towards it
+            self.move_towards_object(1.0)  # Move 1 meter towards the object
+            self.pick_up_object()
 
-    def run(self):
-        rospy.spin()
 
+if __name__ == "__main__":
+    robot_system = Movement()
+    rospy.spin()
