@@ -12,7 +12,7 @@ class Movement:
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
         self.twist = Twist()
         self.current_scan = None
-        self.safe_distance = 0.21
+        self.safe_distance = 0.15
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.initialize_robot()
@@ -42,7 +42,7 @@ class Movement:
 
     def approach_closest_object(self, min_distance, min_angle):
         angular_speed = 0.3
-        linear_speed = 0.2
+        linear_speed = 0.1
         target_angle = min_angle - 180 if min_angle > 180 else min_angle
         rospy.loginfo(f"Approaching object at angle {min_angle} with distance {min_distance}")
         while not rospy.is_shutdown():
@@ -74,9 +74,9 @@ class Movement:
         rospy.loginfo("Dumping the object into the bin at the back...")
         dump_position = [0, -math.radians(30), -math.radians(10), math.radians(0)]
         self.move_group_arm.go(dump_position, wait=True)
-        rospy.sleep(5)
+        rospy.sleep(2)
         self.move_group_gripper.go([0.01, 0.01], wait=True)
-        rospy.sleep(5)
+        rospy.sleep(2)
         self.move_group_arm.go([0, 0, 0, 0], wait=True)
         self.move_group_gripper.go([0.01, 0.01], wait=True)
         self.move_group_arm.stop()
