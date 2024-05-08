@@ -7,12 +7,12 @@ import math
 
 class Movement:
     def __init__(self):
-        rospy.init_node('robot_policy_executor')
+        rospy.init_node('movement_controller')
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
         self.twist = Twist()
         self.current_scan = None
-        self.safe_distance = 0.25
+        self.stop_distance = 0.15  # Stop about half a foot away (0.15 meters)
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.initialize_robot()
@@ -25,81 +25,63 @@ class Movement:
         self.move_group_gripper.stop()
         rospy.loginfo("Robot initialized to home position with gripper open.")
 
-    def lidar_callback(self, data):
-        self.current_scan = data
-        rospy.loginfo("LIDAR data received")
+    def lidar_callback(self, msg):
+        self.current_scan = msg
 
     def find_closest_object(self):
         if self.current_scan is None:
-            rospy.loginfo("No LIDAR data")
             return None
         ranges = self.current_scan.ranges
+        print('\t\t\ here: ', min(ranges))
         min_distance = float('inf')
         min_angle = None
         for i, distance in enumerate(ranges):
             if 0.05 < distance < min_distance:  # Ignore zero and very close readings
                 min_distance = distance
                 min_angle = i
-        if min_angle is None:
-            return None
         return min_distance, min_angle
 
-    def approach_closest_object(self, min_distance, min_angle):
-        angular_speed = 0.3
+    def approach_closest_object(self, min_distance):
         linear_speed = 0.1
-        target_angle = min_angle - 180 if min_angle > 180 else min_angle
-        rospy.loginfo(f"Approaching object at angle {min_angle} with distance {min_distance}")
+        rospy.loginfo(f"Approaching object with distance {min_distance}")
         while not rospy.is_shutdown():
-            if min_distance < self.safe_distance:
+            if min_distance < self.stop_distance:
                 self.twist.linear.x = 0
                 self.twist.angular.z = 0
                 self.cmd_vel_pub.publish(self.twist)
-                rospy.loginfo("Object is within safe distance, stopping.")
+                rospy.loginfo("Object is within stopping distance, stopping.")
                 break
             self.twist.linear.x = linear_speed
-            self.twist.angular.z = -angular_speed if target_angle > 0 else angular_speed
+            self.twist.angular.z = 0
             self.cmd_vel_pub.publish(self.twist)
             rospy.sleep(0.1)
-            closest_object = self.find_closest_object()
-            if closest_object:
-                min_distance, min_angle = closest_object
-                target_angle = min_angle - 180 if min_angle > 180 else min_angle
+            min_distance, _ = self.find_closest_object()
 
     def pick_up_object(self):
         rospy.loginfo("Picking up the object...")
-        self.move_group_arm.go([0, math.radians(18), math.radians(2), math.radians(0)], wait=True)
+        # Reach for the cup
+        self.move_group_arm.go([0, math.radians(30), math.radians(45), math.radians(0)], wait=True)
         rospy.sleep(2)
+        # Grip the cup
         self.move_group_gripper.go([-0.01, -0.01], wait=True)
         rospy.sleep(2)
+        # Lift the cup
         self.move_group_arm.go([0, -0.5, 0, 0], wait=True)
         rospy.sleep(2)
         self.move_group_arm.stop()
         self.move_group_gripper.stop()
         rospy.loginfo("Object picked up successfully.")
 
-    def throw_away(self):
-        rospy.loginfo("Dumping the object into the bin at the back...")
-        dump_position = [0, -math.radians(30), -math.radians(10), math.radians(0)]
-        self.move_group_arm.go(dump_position, wait=True)
-        rospy.sleep(2)
-        self.move_group_gripper.go([0.01, 0.01], wait=True)
-        rospy.sleep(2)
-        self.move_group_arm.go([0, 0, 0, 0], wait=True)
-        self.move_group_gripper.go([0.01, 0.01], wait=True)
-        self.move_group_arm.stop()
-        self.move_group_gripper.stop()
-        rospy.loginfo("Object dumped successfully into the bin.")
-
     def run(self):
         rate = rospy.Rate(10)  # 10 Hz
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
             if closest_object:
-                min_distance, min_angle = closest_object
-                rospy.loginfo(f"Closest object at distance: {min_distance}, angle: {min_angle}")
-                self.approach_closest_object(min_distance, min_angle)
+                min_distance, _ = closest_object
+                rospy.loginfo(f"Closest object at distance: {min_distance}")
+                self.approach_closest_object(min_distance)
                 self.pick_up_object()
-                self.throw_away()
+                break  # Stop after picking up the object
             else:
                 rospy.loginfo("No objects detected.")
             rate.sleep()
