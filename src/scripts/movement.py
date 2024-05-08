@@ -39,7 +39,7 @@ class Movement:
             if 0.05 < distance < min_distance:  # Ignore zero and very close readings
                 min_distance = distance
                 min_angle = i
-        return min_distance, min_angle
+        return min_distance
 
     def approach_closest_object(self, min_distance):
         linear_speed = 0.1
@@ -55,7 +55,7 @@ class Movement:
             self.twist.angular.z = 0
             self.cmd_vel_pub.publish(self.twist)
             rospy.sleep(0.1)
-            min_distance, _ = self.find_closest_object()
+            min_distance = self.find_closest_object()
 
     def pick_up_object(self):
         rospy.loginfo("Picking up the object...")
