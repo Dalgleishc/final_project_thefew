@@ -13,11 +13,12 @@ class Movement:
         rospy.init_node('movement_controller')
         rospy.loginfo("Initializing Movement Node")
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self.trash_detect = rospy.Subscriber('camera/rgb/image_raw', Image, self.detect_trash)
+        # self.trash_detect = rospy.Subscriber('camera/rgb/image_raw', Image, self.detect_trash)
         self.scan_subscriber = rospy.Subscriber('/scan', LaserScan, self.scan_callback)
         self.twist = Twist()
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
+        rospy.wait(5)
         self.current_scan = None
         self.initialize_robot()
 
@@ -45,7 +46,7 @@ class Movement:
         rospy.loginfo("Spinning the robot...")
         self.twist.angular.z = 0.5  # Spin speed
         self.cmd_vel_pub.publish(self.twist)
-        rospy.sleep(2)  # Spin for 2 seconds
+        rospy.sleep(5)  # Spin for 2 seconds
         self.twist.angular.z = 0  # Stop the spin
         self.cmd_vel_pub.publish(self.twist)
         rospy.loginfo("Finished spinning.")
@@ -79,11 +80,12 @@ class Movement:
         
         rospy.loginfo("Object dumped successfully into the bin.")
 
-    def detect_trash(self, data):
+    def detect_trash(self):
         '''
         This is a placeholder for the actual trash detection logic
         '''
         rospy.loginfo("Detecting trash...")
+        pass
 
     def scan_callback(self, data):
         '''
@@ -95,7 +97,7 @@ class Movement:
         if self.current_scan is None:
             return None
         ranges = self.current_scan.ranges
-        min_distance = float('inf')
+        min_distance = float('inf') or 0
         min_angle = None
         for i, distance in enumerate(ranges):
             if distance < min_distance:
