@@ -5,6 +5,7 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 import moveit_commander
 import math
+import atexit
 
 class Movement:
     def __init__(self):
@@ -18,6 +19,9 @@ class Movement:
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.initialize_robot()
 
+        # Register the reset method to be called on program exit
+        atexit.register(self.reset_robot)
+
     def initialize_robot(self):
         rospy.loginfo("Initializing robot arm and gripper to default states...")
         self.move_group_arm.go([0, 0, 0, 0], wait=True)
@@ -25,6 +29,14 @@ class Movement:
         self.move_group_arm.stop()
         self.move_group_gripper.stop()
         rospy.loginfo("Robot initialized to home position with gripper open.")
+
+    def reset_robot(self):
+        rospy.loginfo("Resetting robot arm and gripper to default states...")
+        self.move_group_arm.go([0, 0, 0, 0], wait=True)
+        self.move_group_gripper.go([0.01, 0.01], wait=True)
+        self.move_group_arm.stop()
+        self.move_group_gripper.stop()
+        rospy.loginfo("Robot reset to home position with gripper open.")
 
     def lidar_callback(self, msg):
         self.current_scan = msg
