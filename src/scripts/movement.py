@@ -25,8 +25,8 @@ class Movement:
         self.move_group_gripper.stop()
         rospy.loginfo("Robot initialized to home position with gripper open.")
 
-    def lidar_callback(self, msg):
-        self.current_scan = msg
+    def lidar_callback(self, data):
+        self.current_scan = data
         rospy.loginfo("LIDAR data received")
 
     def find_closest_object(self):
