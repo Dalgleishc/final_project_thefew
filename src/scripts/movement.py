@@ -12,7 +12,7 @@ class Movement:
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
         self.twist = Twist()
         self.current_scan = None
-        self.safe_distance = 0.15
+        self.safe_distance = 0.25
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.initialize_robot()
@@ -27,9 +27,11 @@ class Movement:
 
     def lidar_callback(self, msg):
         self.current_scan = msg
+        rospy.loginfo("LIDAR data received")
 
     def find_closest_object(self):
         if self.current_scan is None:
+            rospy.loginfo("No LIDAR data")
             return None
         ranges = self.current_scan.ranges
         min_distance = float('inf')
@@ -38,6 +40,8 @@ class Movement:
             if 0.05 < distance < min_distance:  # Ignore zero and very close readings
                 min_distance = distance
                 min_angle = i
+        if min_angle is None:
+            return None
         return min_distance, min_angle
 
     def approach_closest_object(self, min_distance, min_angle):
@@ -56,7 +60,10 @@ class Movement:
             self.twist.angular.z = -angular_speed if target_angle > 0 else angular_speed
             self.cmd_vel_pub.publish(self.twist)
             rospy.sleep(0.1)
-            min_distance, min_angle = self.find_closest_object()
+            closest_object = self.find_closest_object()
+            if closest_object:
+                min_distance, min_angle = closest_object
+                target_angle = min_angle - 180 if min_angle > 180 else min_angle
 
     def pick_up_object(self):
         rospy.loginfo("Picking up the object...")
