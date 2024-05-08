@@ -1,6 +1,6 @@
 <launch>
-    <node name="republish" pkg="image_transport" type="republish" args="compressed in:=raspicam_node/image raw out:=camera/rgb/image_raw" output="screen"/>
-    <!-- <include file="$(find turtlebot3_manipulation_bringup)/launch/turtlebot3_manipulation_bringup.launch"/> -->
+    <!-- <node name="republish" pkg="image_transport" type="republish" args="compressed in:=raspicam_node/image raw out:=camera/rgb/image_raw" output="screen"/> -->
+    <include file="$(find turtlebot3_manipulation_bringup)/launch/turtlebot3_manipulation_bringup.launch"/>
     <include file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch"/>
     <node name="movement" pkg="final_project_thefew" type="movement.py" output="screen"/>
 </launch>
