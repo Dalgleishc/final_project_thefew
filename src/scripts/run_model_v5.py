@@ -1,24 +1,11 @@
-import os, random, shutil, logging, zipfile, yaml, PIL, torch, random, time, sys, warnings, subprocess
+import os, logging, subprocess
 
 import urllib.request
 
-import xml.etree.ElementTree as ET
-import numpy as np
-import matplotlib as plt
-import tensorflow as tf
-
-import fiftyone as fo
-import fiftyone.zoo as foz
-import fiftyone.utils.yolo as foy
-
-from IPython.display import Image 
-from sklearn.model_selection import train_test_split
-from pylabel import importer
-from xml.dom import minidom
-from tqdm import tqdm
-from PIL import Image, ImageDraw
-from pylabel import importer
-from requests.exceptions import ConnectionError
+import rospy, cv2, cv_bridge, numpy
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import Twist
+from yolov5 import YOLOv5
 
 # ANSI escape codes
 red_color_code = "\033[91m"
@@ -47,8 +34,19 @@ class model_run_v5(object):
         self.yolo_dir = os.path.join(self.model_dir, "yolov5")
 
         logging.getLogger().setLevel(logging.CRITICAL)
-    
 
+        # set up ROS / OpenCV bridge
+        self.bridge = cv_bridge.CvBridge()
+
+        # set up model
+        self.model = []
+
+        # initalize the debugging window
+        cv2.namedWindow("window", 1)
+
+        # subscribe to the robot's RGB camera data stream
+        self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
+    
     def get_model_weight(self):
         weights_dir = os.path.join(self.yolo_dir, 'weights')
         os.makedirs(weights_dir, exist_ok=True)
@@ -100,12 +98,28 @@ class model_run_v5(object):
         command = [
             'python3', detect_script,
             '--weights', weights_path,
-            '--source', '0',
+            '--source', "0",
             '--img', str(img_size)
         ]
         
         # Run the inference process
         subprocess.run(command)
+
+    def image_callback(self, msg):
+        # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
+        
+        try:
+            image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
+            results = self.model(image)
+            # Render detections
+            cv_image = results.render()[0]
+
+            # Display Image
+            cv2.imshow("YOLOv5 Detection", cv_image)
+            cv2.waitKey(3)
+        except:
+            print(f"Waiting for image")
+        
     
     def run(self):
 
@@ -116,17 +130,22 @@ class model_run_v5(object):
         print(f"Yolo directory: {self.yolo_dir}")
 
         # # Model weight
-        # model_weight = self.get_trained_model()
+        model_weight = self.get_trained_model()
 
-        model_weight_train = self.get_model_weight()
+        self.model = YOLOv5(self.get_model_weight())
 
         # # # Test image
         # # source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
 
         # # self.run_inference_image(model_weight, source_path)
 
+        device = input("Type 1 for macbook camera\tType 2 for pi camera")
+
         try:
-            self.run_live_inference(model_weight_train)
+            if device == 1:
+                self.run_live_inference(model_weight)
+            else:
+                self.run_pi_inference()
             while True:
                 pass
         except KeyboardInterrupt:
