@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
@@ -30,20 +31,24 @@ class Movement:
 
     def find_closest_object(self):
         if self.current_scan is None:
+            rospy.loginfo("No LIDAR data")
             return None
         ranges = self.current_scan.ranges
-        print('\t\t\ here: ', min(ranges))
         min_distance = float('inf')
         min_angle = None
         for i, distance in enumerate(ranges):
             if 0.05 < distance < min_distance:  # Ignore zero and very close readings
                 min_distance = distance
                 min_angle = i
-        return min_distance
+        if min_angle is None:
+            return None
+        return min_distance, min_angle
 
-    def approach_closest_object(self, min_distance):
+    def approach_closest_object(self, min_distance, min_angle):
+        angular_speed = 0.3
         linear_speed = 0.1
-        rospy.loginfo(f"Approaching object with distance {min_distance}")
+        target_angle = min_angle - 180 if min_angle > 180 else min_angle
+        rospy.loginfo(f"Approaching object at angle {min_angle} with distance {min_distance}")
         while not rospy.is_shutdown():
             if min_distance < self.stop_distance:
                 self.twist.linear.x = 0
@@ -52,10 +57,13 @@ class Movement:
                 rospy.loginfo("Object is within stopping distance, stopping.")
                 break
             self.twist.linear.x = linear_speed
-            self.twist.angular.z = 0
+            self.twist.angular.z = -angular_speed if target_angle > 0 else angular_speed
             self.cmd_vel_pub.publish(self.twist)
             rospy.sleep(0.1)
-            min_distance = self.find_closest_object()
+            closest_object = self.find_closest_object()
+            if closest_object:
+                min_distance, min_angle = closest_object
+                target_angle = min_angle - 180 if min_angle > 180 else min_angle
 
     def pick_up_object(self):
         rospy.loginfo("Picking up the object...")
@@ -77,9 +85,9 @@ class Movement:
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
             if closest_object:
-                min_distance, _ = closest_object
-                rospy.loginfo(f"Closest object at distance: {min_distance}")
-                self.approach_closest_object(min_distance)
+                min_distance, min_angle = closest_object
+                rospy.loginfo(f"Closest object at distance: {min_distance}, angle: {min_angle}")
+                self.approach_closest_object(min_distance, min_angle)
                 self.pick_up_object()
                 break  # Stop after picking up the object
             else:
