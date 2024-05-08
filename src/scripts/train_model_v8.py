@@ -17,17 +17,25 @@ class train(object):
 
     def __init__(self):
 
-        # Get the current file's directory
+         # Get the current file's directory
         self.current_dir = os.path.dirname(__file__)
 
-        # Get the parent directory
-        self.parent_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir)) 
+        # Get the scripts directory
+        self.src_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir))
+
+        # Get the model directory
+        self.model_dir = os.path.abspath(os.path.join(self.src_dir, "model")) 
 
         # Set the export directory
-        self.export_dir = os.path.join(self.parent_dir, "yolov8-export")
+        self.export_dir = os.path.join(self.model_dir, "yolov8-export")
 
         # Set the YAML file path
         self.data_yaml = os.path.join(self.export_dir, "dataset.yaml")
+
+        # Set the yolo submodule directory
+        self.yolo_dir = os.path.join(self.model_dir, "yolov5")
+
+        logging.getLogger().setLevel(logging.CRITICAL)
 
         # Build a new model from YAML 
         self.model = YOLO('yolov8n.yaml')

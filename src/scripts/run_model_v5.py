@@ -31,17 +31,20 @@ class model_run_v5(object):
          # Get the current file's directory
         self.current_dir = os.path.dirname(__file__)
 
-        # Get the parent directory
-        self.parent_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir)) 
+        # Get the scripts directory
+        self.src_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir))
+
+        # Get the model directory
+        self.model_dir = os.path.abspath(os.path.join(self.src_dir, "model")) 
 
         # Set the export directory
-        self.export_dir = os.path.join(self.parent_dir, "yolov5-export")
+        self.export_dir = os.path.join(self.model_dir, "yolov5-export")
 
         # Set the YAML file path
         self.data_yaml = os.path.join(self.export_dir, "dataset.yaml")
 
         # Set the yolo submodule directory
-        self.yolo_dir = os.path.join(self.parent_dir, "yolov5")
+        self.yolo_dir = os.path.join(self.model_dir, "yolov5")
 
         logging.getLogger().setLevel(logging.CRITICAL)
     
@@ -106,15 +109,21 @@ class model_run_v5(object):
     
     def run(self):
 
-        # Model weight
-        model_weight = self.get_trained_model()
+        print(f"Current directory: {self.current_dir}")
+        print(f"Src directory: {self.src_dir}")
+        print(f"Model directory: {self.model_dir}")
+        print(f"Export directory: {self.export_dir}")
+        print(f"Yolo directory: {self.yolo_dir}")
+
+        # # Model weight
+        # model_weight = self.get_trained_model()
 
         model_weight_train = self.get_model_weight()
 
-        # # Test image
-        # source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
+        # # # Test image
+        # # source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
 
-        # self.run_inference_image(model_weight, source_path)
+        # # self.run_inference_image(model_weight, source_path)
 
         try:
             self.run_live_inference(model_weight_train)

@@ -15,20 +15,25 @@ class train_v5(object):
 
     def __init__(self):
 
-        # Get the current file's directory
+         # Get the current file's directory
         self.current_dir = os.path.dirname(__file__)
 
-        # Get the parent directory
-        self.parent_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir)) 
+        # Get the scripts directory
+        self.src_dir = os.path.abspath(os.path.join(self.current_dir, os.pardir))
+
+        # Get the model directory
+        self.model_dir = os.path.abspath(os.path.join(self.src_dir, "model")) 
 
         # Set the export directory
-        self.export_dir = os.path.join(self.parent_dir, "yolov5-export")
+        self.export_dir = os.path.join(self.model_dir, "yolov5-export")
 
         # Set the YAML file path
         self.data_yaml = os.path.join(self.export_dir, "dataset.yaml")
 
         # Set the yolo submodule directory
-        self.yolo_dir = os.path.join(self.parent_dir, "yolov5")
+        self.yolo_dir = os.path.join(self.model_dir, "yolov5")
+
+        logging.getLogger().setLevel(logging.CRITICAL)
 
         logging.getLogger().setLevel(logging.CRITICAL)
 
