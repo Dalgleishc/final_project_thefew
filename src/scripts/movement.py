@@ -13,7 +13,7 @@ class Movement:
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
         self.twist = Twist()
         self.current_scan = None
-        self.stop_distance = 0.2  # Stop about 0.2 meters away
+        self.stop_distance = 0.4  # Stop about 0.2 meters away
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.initialize_robot()
@@ -87,25 +87,51 @@ class Movement:
         move_downward_position = [0, math.radians(82), math.radians(-43), math.radians(-11)]  # Extend arm downwards
         # Move arm to the extended forward position
         self.move_group_arm.go(move_downward_position, wait=True)
-        rospy.sleep(3)  # Wait for the arm to reach the extended position
+        rospy.sleep(2)  # Wait for the arm to reach the extended position
         self.move_group_arm.stop()
         rospy.loginfo("downward position reached.")
         self.move_group_gripper.go([-0.01, -0.01], wait=True)  # Use maximum closure within limits
-        rospy.sleep(3)  # Allow time for the gripper to close
+        rospy.sleep(2)  # Allow time for the gripper to close
         self.move_group_gripper.stop()
         rospy.loginfo("Gripper clenched. Lifting the object...")
         # Lift the arm to clear any obstacles
         lift_position = [0, math.radians(-40), math.radians(-54), math.radians(-101)]  # Retract and lift the arm
         self.move_group_arm.go(lift_position, wait=True)
-        rospy.sleep(3)  # Wait for the arm to lift to the safe position
+        rospy.sleep(2)  # Wait for the arm to lift to the safe position
         self.move_group_arm.stop()
         rospy.loginfo("Object lifted.")
+        rospy.sleep(0.5)
         # Open the gripper to throw away
-        # self.move_group_gripper.go([0.01, 0.01], wait=True)
+        self.move_group_gripper.go([0.01, 0.01], wait=True)
+        rospy.sleep(1)
+        self.reset_arms()
+        self.reset()
+
+    def reset(self):
+        rospy.loginfo("Resetting to search for another object...")
+        # Spin the robot to search for another object
+        for _ in range(12):  # Spin for a fixed number of iterations
+            self.twist.angular.z = 0.5  # Set a moderate spinning speed
+            self.cmd_vel_pub.publish(self.twist)
+            rospy.sleep(0.5)  # Spin for half a second per iteration
+        self.twist.angular.z = 0  # Stop spinning
+        self.cmd_vel_pub.publish(self.twist)
+        rospy.loginfo("Search reset complete, looking for new objects.")
+        # After spinning, attempt to approach the closest object again
+        self.run()
+
+    def reset_arms(self):
+        print("resetting arm angles")
+        self.move_group_arm.go([0, 0, 0, 0], wait=True)
+        self.move_group_gripper.go([0.01, 0.01], wait=True)
+        self.move_group_arm.stop()
+        self.move_group_gripper.stop()
+        print("Done resetting arm angles")
 
 
     def run(self):
         rospy.loginfo("Starting the robot...")
+        self.reset_arms()
         rospy.sleep(2)  # Wait for 2 seconds to stabilize
         self.approach_closest_object()
 
