@@ -1,30 +1,58 @@
 #!/usr/bin/env python3
 
 import rospy
+from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist
-from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Bool
+import cv2
+from cv_bridge import CvBridge
 import moveit_commander
 import math
-# from run_model_v5 import model_run_v5
+from yolov5 import YOLOv5  # Ensure YOLOv5 is properly installed and accessible
+import os
 
 class Movement:
     def __init__(self):
         rospy.init_node('movement_controller')
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
+        self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.image_callback)
+        self.bridge = CvBridge()
         self.twist = Twist()
         self.current_scan = None
-        self.stop_distance = 0.4  # Stop about 0.2 meters away
+        self.stop_distance = 0.4
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
-        ##### model logic ########
-        self.trash_sub = rospy.Subscriber('is_trash', Bool, self.trash_callback)
         self.is_trash = False
         self.initialize_robot()
 
-        # to stop robot
+        # Load the model
+        # Correctly setting the path to the model weights
+        model_weights_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'best.pt')
+        self.model = YOLOv5(model_weights_path)
+
         rospy.on_shutdown(self.stop_robot)
+
+
+        rospy.on_shutdown(self.stop_robot)
+
+    def image_callback(self, msg):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            results = self.model(cv_image)
+            self.is_trash = self.process_results(results)
+            rospy.loginfo(f"Trash detection updated: {self.is_trash}")
+            cv_image = results.render()[0]
+            cv2.imshow("Camera View", cv_image)
+            cv2.waitKey(3)
+        except Exception as e:
+            rospy.loginfo(f"Error processing image: {e}")
+
+    def process_results(self, results):
+        for result in results.xyxy[0]:  # Assuming results contain bounding boxes
+            if result[-1] == 'trash':  # Assuming label index for 'trash' is known
+                return True
+        return False
 
     def stop_robot(self):
         rospy.loginfo("Shutting down: Stopping the robot...")
@@ -34,8 +62,6 @@ class Movement:
         # Optionally reset arm and gripper positions as well
         self.move_group_arm.go([0, 0, 0, 0], wait=True)
         self.move_group_gripper.go([0.01, 0.01], wait=True)
-
-
 
     ##### model logic ########
     def trash_callback(self, msg):
