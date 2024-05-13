@@ -8,7 +8,7 @@ import cv2
 from cv_bridge import CvBridge
 import moveit_commander
 import math
-from yolov5 import YOLOv5  # Ensure YOLOv5 is properly installed and accessible
+from yolov5 import YOLOv5
 import os
 
 class Movement:
@@ -20,25 +20,25 @@ class Movement:
         self.bridge = CvBridge()
         self.twist = Twist()
         self.current_scan = None
-        self.stop_distance = 0.4
+        self.stop_distance = 0.28
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.is_trash = False
+        cv2.namedWindow("Camera View", 1)
         self.initialize_robot()
 
         # Load the model
         # Correctly setting the path to the model weights
-        model_weights_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'best.pt')
-        self.model = YOLOv5(model_weights_path)
+        # model_weights_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'best.pt')
+        # self.model = YOLOv5.load(model_weights_path)
 
         rospy.on_shutdown(self.stop_robot)
 
-
-        rospy.on_shutdown(self.stop_robot)
 
     def image_callback(self, msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+
             results = self.model(cv_image)
             self.is_trash = self.process_results(results)
             rospy.loginfo(f"Trash detection updated: {self.is_trash}")
@@ -130,11 +130,11 @@ class Movement:
         rospy.loginfo("Final stop command issued.")
         
         ##### model logic ########
-        if self.is_trash:
-            rospy.loginfo("Trash detected, executing pick up.")
-            self.pick_up_object()
-        else:
-            rospy.loginfo("Object detected is not trash, skipping.")
+        # if self.is_trash:
+        rospy.loginfo("Trash detected, executing pick up.")
+        self.pick_up_object()
+        # else:
+            # rospy.loginfo("Object detected is not trash, skipping.")
 
     def pick_up_object(self):
         rospy.loginfo("Approaching the object...")
@@ -146,19 +146,19 @@ class Movement:
         self.move_group_arm.stop()
         rospy.loginfo("downward position reached.")
         self.move_group_gripper.go([-0.01, -0.01], wait=True)  # Use maximum closure within limits
-        rospy.sleep(2)  # Allow time for the gripper to close
+        rospy.sleep(1.5)  # Allow time for the gripper to close
         self.move_group_gripper.stop()
         rospy.loginfo("Gripper clenched. Lifting the object...")
         # Lift the arm to clear any obstacles
         lift_position = [0, math.radians(-40), math.radians(-54), math.radians(-101)]  # Retract and lift the arm
         self.move_group_arm.go(lift_position, wait=True)
-        rospy.sleep(2)  # Wait for the arm to lift to the safe position
+        rospy.sleep(3)  # Wait for the arm to lift to the safe position
         self.move_group_arm.stop()
         rospy.loginfo("Object lifted.")
-        rospy.sleep(0.5)
+        rospy.sleep(2)
         # Open the gripper to throw away
         self.move_group_gripper.go([0.01, 0.01], wait=True)
-        rospy.sleep(1)
+        rospy.sleep(2)
         self.reset_arms()
         self.reset()
 
