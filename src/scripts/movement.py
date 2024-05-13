@@ -3,8 +3,10 @@
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Bool
 import moveit_commander
 import math
+# from run_model_v5 import model_run_v5
 
 class Movement:
     def __init__(self):
@@ -16,7 +18,29 @@ class Movement:
         self.stop_distance = 0.4  # Stop about 0.2 meters away
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
+        ##### model logic ########
+        self.trash_sub = rospy.Subscriber('is_trash', Bool, self.trash_callback)
+        self.is_trash = False
         self.initialize_robot()
+
+        # to stop robot
+        rospy.on_shutdown(self.stop_robot)
+
+    def stop_robot(self):
+        rospy.loginfo("Shutting down: Stopping the robot...")
+        self.twist.linear.x = 0
+        self.twist.angular.z = 0
+        self.cmd_vel_pub.publish(self.twist)
+        # Optionally reset arm and gripper positions as well
+        self.move_group_arm.go([0, 0, 0, 0], wait=True)
+        self.move_group_gripper.go([0.01, 0.01], wait=True)
+
+
+
+    ##### model logic ########
+    def trash_callback(self, msg):
+        self.is_trash = msg.data
+        rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
 
     def initialize_robot(self):
         rospy.loginfo("Initializing robot arm and gripper to default states...")
@@ -37,7 +61,7 @@ class Movement:
         min_distance = float('inf')
         min_angle = None
         for i, distance in enumerate(ranges):
-            if 0.05 < distance < min_distance:  # Ignore zero and very close readings
+            if 0.05 < distance < min_distance:
                 min_distance = distance
                 min_angle = i
         if min_angle is None:
@@ -78,8 +102,13 @@ class Movement:
         self.twist.linear.x = 0
         self.cmd_vel_pub.publish(self.twist)
         rospy.loginfo("Final stop command issued.")
-        self.pick_up_object()
-
+        
+        ##### model logic ########
+        if self.is_trash:
+            rospy.loginfo("Trash detected, executing pick up.")
+            self.pick_up_object()
+        else:
+            rospy.loginfo("Object detected is not trash, skipping.")
 
     def pick_up_object(self):
         rospy.loginfo("Approaching the object...")
@@ -136,6 +165,8 @@ class Movement:
         self.approach_closest_object()
 
 if __name__ == "__main__":
-    executor = Movement()
-    executor.run()
-    rospy.spin()
+    try:
+        executor = Movement()
+        executor.run()
+    except rospy.ROSInterruptException:
+        rospy.loginfo("Movement node interrupted.")
