@@ -124,7 +124,7 @@ class train_v5(object):
     # return the path of the best.pt file in the directory if already trained and going to extend training
     def get_trained_model(self):
         # Path to the model file
-        model_path = os.path.join(self.parent_dir, "best.pt")
+        model_path = os.path.join(self.src_dir, "best.pt")
 
         # Check if the file exists
         if os.path.exists(model_path):

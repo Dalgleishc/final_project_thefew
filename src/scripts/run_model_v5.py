@@ -43,7 +43,7 @@ class model_run_v5(object):
         self.model = []
 
         # initalize the debugging window
-        cv2.namedWindow("window", 1)
+        #cv2.namedWindow("window", 1)
 
         # subscribe to the robot's RGB camera data stream
         self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
@@ -77,7 +77,7 @@ class model_run_v5(object):
     # return the path of the best.pt file in the directory
     def get_trained_model(self):
 
-        return os.path.join(self.parent_dir,"best.pt")
+        return 1 #os.path.join(self.parent_dir,"best.pt")
 
     def run_inference_image(self, weights_path, source_path, img_size=640, conf_thres=0.25, iou_thres=0.45):
         # Path to the YOLOv5 detection script
@@ -123,8 +123,8 @@ class model_run_v5(object):
             cv_image = results.render()[0]
 
             # Display Image
-            cv2.imshow("YOLOv5 Detection", cv_image)
-            cv2.waitKey(3)
+            # cv2.imshow("YOLOv5 Detection", cv_image)
+            # cv2.waitKey(3)
         except:
             print(f"Waiting for image")
 
@@ -145,9 +145,12 @@ class model_run_v5(object):
         print(f"Yolo directory: {self.yolo_dir}")
 
         # # Model weight
-        model_weight = self.get_trained_model()
+        model_weight = self.get_model_weight()
 
         self.model = YOLOv5(self.get_model_weight())
+
+        source_path =  os.path.abspath(os.path.join((os.path.abspath(os.path.join(self.src_dir, os.pardir))), "can.jpg"))
+
 
         # # # Test image
         # # source_path = os.path.join(parent_dir, "can_dataset", "archive", "test_image.jpg")
@@ -160,7 +163,7 @@ class model_run_v5(object):
             if device == 1:
                 self.run_live_inference(model_weight)
             else:
-                self.run_pi_inference()
+                self.run_inference_image(model_weight, source_path)
             while True:
                 pass
         except KeyboardInterrupt:
