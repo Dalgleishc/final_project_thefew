@@ -31,8 +31,11 @@ class model_run_v5(object):
         # Set the YAML file path
         self.data_yaml = os.path.join(self.export_dir, "dataset.yaml")
 
+        # Set the project directory
+        self.top_dir = os.path.abspath(os.path.join(self.src_dir, os.pardir))
+
         # Set the yolo submodule directory
-        self.yolo_dir = os.path.join(self.model_dir, "yolov5")
+        self.yolo_dir = os.path.join(self.top_dir, "yolov5")
 
         logging.getLogger().setLevel(logging.CRITICAL)
 
@@ -157,7 +160,7 @@ class model_run_v5(object):
 
         # # self.run_inference_image(model_weight, source_path)
 
-        device = input("Type 1 for macbook camera\tType 2 for pi camera")
+        device = input("Type 1 for macbook camera\tType 2 for pi camera\n\n\t")
 
         try:
             if device == 1:
