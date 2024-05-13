@@ -49,12 +49,24 @@ class Movement:
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
             if closest_object:
-                min_distance, _ = closest_object
+                min_distance, min_angle = closest_object
                 if min_distance < self.stop_distance:
-                    self.twist.linear.x = 0
-                    self.cmd_vel_pub.publish(self.twist)
-                    rospy.loginfo(f"Stopped close to the object at distance {min_distance} meters.")
-                    break
+                    # Check the next few readings to confirm consistency within stop distance
+                    consistency_count = 0
+                    for i in range(1, 5):  # Check the next 4 readings around the minimum angle
+                        index = (min_angle + i) % len(self.current_scan.ranges)
+                        if self.current_scan.ranges[index] <= self.stop_distance:
+                            consistency_count += 1
+                        index = (min_angle - i) % len(self.current_scan.ranges)
+                        if self.current_scan.ranges[index] <= self.stop_distance:
+                            consistency_count += 1
+                    if consistency_count >= 6:  # If at least 6 out of 8 surrounding points are within the distance
+                        self.twist.linear.x = 0
+                        self.cmd_vel_pub.publish(self.twist)
+                        rospy.loginfo(f"Stopped close to the object at distance {min_distance} meters with consistent readings.")
+                        break
+                    else:
+                        rospy.loginfo("Inconsistent object distance readings, continuing approach.")
                 else:
                     self.twist.linear.x = 0.1  # Move forward at a constant speed
                     self.twist.angular.z = 0
@@ -67,6 +79,7 @@ class Movement:
         self.cmd_vel_pub.publish(self.twist)
         rospy.loginfo("Final stop command issued.")
         self.pick_up_object()
+
 
     def pick_up_object(self):
         rospy.loginfo("Approaching the object...")
