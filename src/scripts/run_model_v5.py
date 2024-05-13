@@ -6,6 +6,7 @@ import rospy, cv2, cv_bridge, numpy
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from yolov5 import YOLOv5
+from std_msgs.msg import Bool
 
 # ANSI escape codes
 red_color_code = "\033[91m"
@@ -46,6 +47,11 @@ class model_run_v5(object):
 
         # subscribe to the robot's RGB camera data stream
         self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
+
+
+        ###### for movement.py ######s
+        self.trash_pub = rospy.Publisher('is_trash', Bool, queue_size=10)
+        # self.trash_pub.publish(Bool(data=True))
     
     def get_model_weight(self):
         weights_dir = os.path.join(self.yolo_dir, 'weights')
@@ -111,6 +117,8 @@ class model_run_v5(object):
         try:
             image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
             results = self.model(image)
+            is_trash = self.process_results(results)
+            self.trash_pub.publish(is_trash)
             # Render detections
             cv_image = results.render()[0]
 
@@ -119,8 +127,15 @@ class model_run_v5(object):
             cv2.waitKey(3)
         except:
             print(f"Waiting for image")
-        
-    
+
+    def process_results(self, results):
+        # Process the model's results to determine if it's trash
+        # Placeholder logic:
+        for result in results:
+            if result['label'] == 'trash' and result['confidence'] > 0.5:
+                return True
+        return False
+
     def run(self):
 
         print(f"Current directory: {self.current_dir}")
