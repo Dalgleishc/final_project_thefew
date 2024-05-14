@@ -32,8 +32,10 @@ class Movement:
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.is_trash = False
-        self.somethinginhand = False
+        self.front_distance = None
         self.initialize_robot()
+        self.px_error = None
+        self.somethinginhand = False
         rospy.on_shutdown(self.stop_robot)
     
 
@@ -121,50 +123,34 @@ class Movement:
         return min_distance, min_angle
 
     def get_px(self, msg):
-        px_error = msg.data
+        self.px_error = msg.data
         print(f"px error: {px_error}")
 
     def approach_closest_object(self):
         '''
-        ueses lidar data to find the closest object
+        Approaches the closest object based on px_error for alignment and distance checking.
         '''
-
-
         print("Approaching the closest object.")
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
             if closest_object:
-                min_distance, min_angle = closest_object
-                if min_distance < self.stop_distance:
-                    # Check the next few readings to confirm consistency within stop distance
-                    consistency_count = 0
-                    for i in range(1, 5):  # Check the next 4 readings around the minimum angle
-                        index = (min_angle + i) % len(self.current_scan.ranges)
-                        if self.current_scan.ranges[index] <= self.stop_distance:
-                            consistency_count += 1
-                        index = (min_angle - i) % len(self.current_scan.ranges)
-                        if self.current_scan.ranges[index] <= self.stop_distance:
-                            consistency_count += 1
-                    if consistency_count >= 6:  # If at least 6 out of 8 surrounding points are within the distance
-                        self.twist.linear.x = 0
-                        self.cmd_vel_pub.publish(self.twist)
-                        print(f"Stopped close to the object at distance {min_distance} meters with consistent readings.")
-                        break
-                    else:
-                        print("Inconsistent object distance readings, continuing approach.")
+                # Convert pixel error to angular error
+                angular = -1 * (self.px_error / 100)
+                
+                # Check if the robot is aligned
+                if abs(angular) > 1.0:
+                    # Not aligned
+                    self.send_movement(0, angular)
                 else:
-                    self.twist.linear.x = 0.1  # Move forward at a constant speed
-                    self.twist.angular.z = 0
-                    self.cmd_vel_pub.publish(self.twist)
-                    print(f"Current distance to object: {min_distance} meters")
-            else:
-                print("No objects detected.")
-            rospy.sleep(0.1)
-        self.twist.linear.x = 0
-        self.cmd_vel_pub.publish(self.twist)
-        print("Final stop command issued.")
-        rospy.sleep(1)
-        
+                    # Aligned, move forward
+                    if self.front_distance > 0.25 and not self.somethinginhand:
+                        self.send_movement(min(0.1, 0.1 * self.front_distance), angular / 5)
+                    else:
+                        self.send_movement(0,0)                   
+                        self.pick_up_object()
+                                      
+                
+
         ##### model logic ########
         # if self.is_trash:
         print("Trash detected, executing pick up.")
@@ -172,6 +158,17 @@ class Movement:
             self.pick_up_object()
         # else:
             # rospy.loginfo("Object detected is not trash, skipping.")
+
+    def send_movement(self, velocity, angular):
+        """
+        Sends a movement command to the robot with given forward (x-axis) velocity and angular velocity (z-axis) for convenience.
+        """
+        move_cmd = Twist()
+        move_cmd.linear.x = velocity
+        move_cmd.angular.z = angular
+        self.cmd_vel_pub.publish(move_cmd)
+        rospy.sleep(0.05)
+        
 
     def pick_up_object(self):
         print("Approaching the object...")
