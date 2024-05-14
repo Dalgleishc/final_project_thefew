@@ -8,23 +8,27 @@ import cv2
 from cv_bridge import CvBridge
 import moveit_commander
 import math
-from yolov5 import YOLOv5
-import os
+# from yolov5 import YOLOv5
+# import os
 
 class Movement:
     def __init__(self):
         rospy.init_node('movement_controller')
+        ###### Publisher ########
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
-        self.image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, self.image_callback)
+        # self.align = rospy.Subscriber('/custom_message_Reece', CustomMessage, self.go_to) TODO
+        # self.is_trash = rospy.Subscriber('/custom_message_Reece', BOOL, self.is_trash) TODO
+        self.cmd_vel_pub.publish
         self.bridge = CvBridge()
         self.twist = Twist()
         self.current_scan = None
-        self.stop_distance = 0.28
+        self.stop_distance = 0.2
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.is_trash = False
-        cv2.namedWindow("Camera View", 1)
+        self.somethinginhand = False
+        # cv2.namedWindow("window", 1)
         self.initialize_robot()
 
         # Load the model
@@ -33,55 +37,78 @@ class Movement:
         # self.model = YOLOv5.load(model_weights_path)
 
         rospy.on_shutdown(self.stop_robot)
+    
 
 
-    def image_callback(self, msg):
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+    ###### custom message from model node for alignment of robot ########
+    def go_to(self, px_error):
+        """
+        TODO Makes the robot go to a certain location based on horizontal linear difference from image. 
+        We use the front_distance attribute which is updated by LiDAR to know when we are close distance wise,
+        while continuously correcting our angle based on where horizontal error.
+        """
+        #cx is the x position of where the object is
+        #the robot needs to turn toward the object (have cx be in the middle of the screen)
+        #then the robot needs to aproach the robot till until it is 0.1m away (scan lidar)
+        # convert pixal error to angular error
+        angular = -1 * (px_error / 100)
 
-            results = self.model(cv_image)
-            self.is_trash = self.process_results(results)
-            rospy.loginfo(f"Trash detection updated: {self.is_trash}")
-            cv_image = results.render()[0]
-            cv2.imshow("Camera View", cv_image)
-            cv2.waitKey(3)
-        except Exception as e:
-            rospy.loginfo(f"Error processing image: {e}")
+        # if not aligned
+        if abs(angular) > 1.0:
+            self.cmd_vel_pub.publish(0, angular)
 
-    def process_results(self, results):
-        for result in results.xyxy[0]:  # Assuming results contain bounding boxes
-            if result[-1] == 'trash':  # Assuming label index for 'trash' is known
-                return True
-        return False
+        # is aligned
+        else:
+            # far from object, getting color
+            if self.front_distance > 0.25 and not self.something_in_hand:
+                self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
+
+            # far from object, getting AR
+            elif self.front_distance > 0.5 and self.something_in_hand:
+                self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
+
+            # close to object
+            else:
+                self.cmd_vel_pub.publish(0, 0)
+                if not self.something_in_hand:
+                    self.pick_object()
+                else:
+                    self.drop_object()
+                    self.something_in_hand = False
+                    self.state = self.next_state
+
+                    self.cmd_vel_pub.publish(-0.5, 0)
+                    rospy.sleep(2)
+
+                    self.get_next_move(self.state)
+
+    ###### custom boolean message from model node ########
+    def trash_callback(self, msg):
+        self.is_trash = msg.data
+        rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
 
     def stop_robot(self):
         rospy.loginfo("Shutting down: Stopping the robot...")
         self.twist.linear.x = 0
         self.twist.angular.z = 0
         self.cmd_vel_pub.publish(self.twist)
-        # Optionally reset arm and gripper positions as well
-        self.move_group_arm.go([0, 0, 0, 0], wait=True)
-        self.move_group_gripper.go([0.01, 0.01], wait=True)
-
-    ##### model logic ########
-    def trash_callback(self, msg):
-        self.is_trash = msg.data
-        rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
+        self.reset_arms()
 
     def initialize_robot(self):
-        rospy.loginfo("Initializing robot arm and gripper to default states...")
+        print("Initializing robot arm and gripper to default states...")
         self.move_group_arm.go([0, 0, 0, 0], wait=True)
         self.move_group_gripper.go([0.01, 0.01], wait=True)
         self.move_group_arm.stop()
         self.move_group_gripper.stop()
-        rospy.loginfo("Robot initialized to home position with gripper open.")
+        print("Robot initialized to home position with gripper open.")
 
+    ###### Subscriber ########
     def lidar_callback(self, msg):
         self.current_scan = msg
 
     def find_closest_object(self):
         if self.current_scan is None:
-            rospy.loginfo("No LIDAR data")
+            print("No LIDAR data")
             return None
         ranges = self.current_scan.ranges
         min_distance = float('inf')
@@ -95,7 +122,7 @@ class Movement:
         return min_distance, min_angle
 
     def approach_closest_object(self):
-        rospy.loginfo("Approaching the closest object.")
+        print("Approaching the closest object.")
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
             if closest_object:
@@ -113,57 +140,58 @@ class Movement:
                     if consistency_count >= 6:  # If at least 6 out of 8 surrounding points are within the distance
                         self.twist.linear.x = 0
                         self.cmd_vel_pub.publish(self.twist)
-                        rospy.loginfo(f"Stopped close to the object at distance {min_distance} meters with consistent readings.")
+                        print(f"Stopped close to the object at distance {min_distance} meters with consistent readings.")
                         break
                     else:
-                        rospy.loginfo("Inconsistent object distance readings, continuing approach.")
+                        print("Inconsistent object distance readings, continuing approach.")
                 else:
                     self.twist.linear.x = 0.1  # Move forward at a constant speed
                     self.twist.angular.z = 0
                     self.cmd_vel_pub.publish(self.twist)
-                    rospy.loginfo(f"Current distance to object: {min_distance} meters")
+                    print(f"Current distance to object: {min_distance} meters")
             else:
-                rospy.loginfo("No objects detected.")
+                print("No objects detected.")
             rospy.sleep(0.1)
         self.twist.linear.x = 0
         self.cmd_vel_pub.publish(self.twist)
-        rospy.loginfo("Final stop command issued.")
+        print("Final stop command issued.")
+        rospy.sleep(1)
         
         ##### model logic ########
         # if self.is_trash:
-        rospy.loginfo("Trash detected, executing pick up.")
-        self.pick_up_object()
+        print("Trash detected, executing pick up.")
+        if not self.somethinginhand:
+            self.pick_up_object()
         # else:
             # rospy.loginfo("Object detected is not trash, skipping.")
 
     def pick_up_object(self):
-        rospy.loginfo("Approaching the object...")
+        print("Approaching the object...")
         # Extend arm forward and as low as possible while respecting joint limits
-        move_downward_position = [0, math.radians(82), math.radians(-43), math.radians(-11)]  # Extend arm downwards
-        # Move arm to the extended forward position
+        move_downward_position = [0, math.radians(73), math.radians(-27), math.radians(-12)]  # Extend arm downwards
         self.move_group_arm.go(move_downward_position, wait=True)
-        rospy.sleep(2)  # Wait for the arm to reach the extended position
+        rospy.sleep(4)  # Wait for the arm to reach the extended position
         self.move_group_arm.stop()
-        rospy.loginfo("downward position reached.")
-        self.move_group_gripper.go([-0.01, -0.01], wait=True)  # Use maximum closure within limits
-        rospy.sleep(1.5)  # Allow time for the gripper to close
+        print("downward position reached.")
+        self.move_group_gripper.go([-0.01, -0.01], wait=True)  # maximum closure within limits
+        rospy.sleep(2)  # Allow time for the gripper to close
         self.move_group_gripper.stop()
-        rospy.loginfo("Gripper clenched. Lifting the object...")
-        # Lift the arm to clear any obstacles
-        lift_position = [0, math.radians(-40), math.radians(-54), math.radians(-101)]  # Retract and lift the arm
+        print("Gripper clenched. Lifting the object...")
+        self.somethinginhand = True
+        lift_position = [0, math.radians(-48), math.radians(-30), math.radians(-101)]  # Retract and lift the arm
         self.move_group_arm.go(lift_position, wait=True)
-        rospy.sleep(3)  # Wait for the arm to lift to the safe position
+        rospy.sleep(6)  # Wait for the arm to lift to the safe position
         self.move_group_arm.stop()
-        rospy.loginfo("Object lifted.")
-        rospy.sleep(2)
+        print("Object lifted.")
         # Open the gripper to throw away
         self.move_group_gripper.go([0.01, 0.01], wait=True)
         rospy.sleep(2)
+        self.somethinginhand = False
         self.reset_arms()
         self.reset()
 
     def reset(self):
-        rospy.loginfo("Resetting to search for another object...")
+        print("Resetting to search for another object...")
         # Spin the robot to search for another object
         for _ in range(12):  # Spin for a fixed number of iterations
             self.twist.angular.z = 0.5  # Set a moderate spinning speed
@@ -171,7 +199,7 @@ class Movement:
             rospy.sleep(0.5)  # Spin for half a second per iteration
         self.twist.angular.z = 0  # Stop spinning
         self.cmd_vel_pub.publish(self.twist)
-        rospy.loginfo("Search reset complete, looking for new objects.")
+        print("Search reset complete, looking for new objects.")
         # After spinning, attempt to approach the closest object again
         self.run()
 
@@ -185,9 +213,9 @@ class Movement:
 
 
     def run(self):
-        rospy.loginfo("Starting the robot...")
+        print("Starting the robot...")
         self.reset_arms()
-        rospy.sleep(2)  # Wait for 2 seconds to stabilize
+        rospy.sleep(2)  # Wait for 2 seconds
         self.approach_closest_object()
 
 if __name__ == "__main__":
@@ -195,4 +223,4 @@ if __name__ == "__main__":
         executor = Movement()
         executor.run()
     except rospy.ROSInterruptException:
-        rospy.loginfo("Movement node interrupted.")
+        print("Movement node interrupted.")
