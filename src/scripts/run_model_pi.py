@@ -69,21 +69,8 @@ class run_model(object):
         # set up model
         self.model = None
 
-        # initalize the debugging window
-        #cv2.namedWindow("window", 1)
-
-        # subscribe to the robot's RGB camera data stream
-        #self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
-
-        print("Starting")
-
-
-        # ###### for movement.py ######s
-        # self.trash_pub = rospy.Publisher('is_trash', Bool, queue_size=10)
-        # # self.trash_pub.publish(Bool(data=True))
-
-        self.model_loaded = rospy.Publisher('model_loaded', Bool, queue_size=10)
-        self.model_loaded.publish(Bool(data=False))
+        self.model_loaded_pub = rospy.Publisher('model_loaded', Bool, queue_size=10)
+        self.model_loaded_pub.publish(Bool(data=False))
 
         self.px_error_pub = rospy.Publisher('px_error', Float32, queue_size=10)
 
@@ -172,6 +159,16 @@ class run_model(object):
         else:
             pass
 
+    def publish_model_state(self, value):
+        # Create a Bool message
+        bool_msg = Bool()
+        bool_msg.data = value
+
+        # Publish the bool value
+        self.model_loaded_pub.publish(bool_msg)
+        rospy.loginfo(f"Published bool value: {value}")
+
+
     def run(self):
 
         print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tGetting Path Vaiables:\n{self.reset_color_code}\n')
@@ -184,6 +181,8 @@ class run_model(object):
         print(f'\n\n{self.green_color_code}{"-" * 100}\n{self.reset_color_code}\n')
 
         self.loading = True
+
+        self.publish_model_state(False)
 
         try:
             # Model weight
@@ -200,6 +199,8 @@ class run_model(object):
         self.loading = False
     
         source_path =  os.path.abspath(os.path.join((os.path.abspath(os.path.join(self.src_dir, os.pardir))), "can.jpg"))
+
+        self.publish_model_state(True)
 
         try:
             print(f"\n\t{self.yellow_color_code}Running Model with PI Camera:\n{self.reset_color_code}")

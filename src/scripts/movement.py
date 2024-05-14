@@ -8,17 +8,22 @@ import cv2
 from cv_bridge import CvBridge
 import moveit_commander
 import math
+from std_msgs.msg import Float32
 # from yolov5 import YOLOv5
 # import os
 
 class Movement:
     def __init__(self):
         rospy.init_node('movement_controller')
+        self.loaded = False
         ###### Publisher ########
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
         # self.align = rospy.Subscriber('/custom_message_Reece', CustomMessage, self.go_to) TODO see line 44
         # self.is_trash = rospy.Subscriber('/custom_message_Reece', BOOL, self.is_trash) TODO see line 86
+        self.px_error_sub = rospy.Subscriber('px_error', Float32, self.get_px)
+        self.model_loaded_sub = rospy.Subscriber('model_loaded', Bool, self.model_loading)
+        
         self.cmd_vel_pub.publish
         self.bridge = CvBridge()
         self.twist = Twist()
@@ -34,51 +39,52 @@ class Movement:
 
 
     ###### custom message from model node for alignment of robot ########
-    def go_to(self, px_error):
-        """
-        TODO Makes the robot go to a certain location based on horizontal linear difference from image. 
-        We use the front_distance attribute which is updated by LiDAR to know when we are close distance wise,
-        while continuously correcting our angle based on where horizontal error.
-        """
-        #cx is the x position of where the object is
-        #the robot needs to turn toward the object (have cx be in the middle of the screen)
-        #then the robot needs to aproach the robot till until it is 0.1m away (scan lidar)
-        # convert pixal error to angular error
-        angular = -1 * (px_error / 100)
+    # def go_to(self, px_error):
+    #     """
+    #     TODO Makes the robot go to a certain location based on horizontal linear difference from image. 
+    #     We use the front_distance attribute which is updated by LiDAR to know when we are close distance wise,
+    #     while continuously correcting our angle based on where horizontal error.
+    #     """
 
-        # if not aligned
-        if abs(angular) > 1.0:
-            self.cmd_vel_pub.publish(0, angular)
+    #     #cx is the x position of where the object is
+    #     #the robot needs to turn toward the object (have cx be in the middle of the screen)
+    #     #then the robot needs to aproach the robot till until it is 0.1m away (scan lidar)
+    #     # convert pixal error to angular error
+    #     angular = -1 * (px_error / 100)
 
-        # is aligned
-        else:
-            # far from object, getting color
-            if self.front_distance > 0.25 and not self.something_in_hand:
-                self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
+    #     # if not aligned
+    #     if abs(angular) > 1.0:
+    #         self.cmd_vel_pub.publish(0, angular)
 
-            # far from object, getting AR
-            elif self.front_distance > 0.5 and self.something_in_hand:
-                self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
+    #     # is aligned
+    #     else:
+    #         # far from object, getting color
+    #         if self.front_distance > 0.25 and not self.something_in_hand:
+    #             self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
 
-            # close to object
-            else:
-                self.cmd_vel_pub.publish(0, 0)
-                if not self.something_in_hand:
-                    self.pick_object()
-                else:
-                    self.drop_object()
-                    self.something_in_hand = False
-                    self.state = self.next_state
+    #         # far from object, getting AR
+    #         elif self.front_distance > 0.5 and self.something_in_hand:
+    #             self.cmd_vel_pub.publish(min(0.1, 0.1 * self.front_distance), angular / 5)
 
-                    self.cmd_vel_pub.publish(-0.5, 0)
-                    rospy.sleep(2)
+    #         # close to object
+    #         else:
+    #             self.cmd_vel_pub.publish(0, 0)
+    #             if not self.something_in_hand:
+    #                 self.pick_object()
+    #             else:
+    #                 self.drop_object()
+    #                 self.something_in_hand = False
+    #                 self.state = self.next_state
 
-                    self.get_next_move(self.state)
+    #                 self.cmd_vel_pub.publish(-0.5, 0)
+    #                 rospy.sleep(2)
+
+    #                 self.get_next_move(self.state)
 
     ###### custom boolean message from model node ########
-    def is_trash(self, msg):
-        self.is_trash = msg.data
-        rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
+    # def is_trash(self, msg):
+    #     self.is_trash = msg.data
+    #     rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
 
     def stop_robot(self):
         rospy.loginfo("Shutting down: Stopping the robot...")
@@ -114,10 +120,16 @@ class Movement:
             return None
         return min_distance, min_angle
 
+    def get_px(self, msg):
+        px_error = msg.data
+        print(f"px error: {px_error}")
+
     def approach_closest_object(self):
         '''
         ueses lidar data to find the closest object
         '''
+
+
         print("Approaching the closest object.")
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
@@ -207,8 +219,14 @@ class Movement:
         self.move_group_gripper.stop()
         print("Done resetting arm angles")
 
+    def model_loading(self, msg):
+        self.loaded = msg.data
+        print(f"Is the model loaded?: {self.loaded}\n")
 
     def run(self):
+        while not self.loaded:
+            print(f"Waiting for model to load\n")
+        
         print("Starting the robot...")
         self.reset_arms()
         rospy.sleep(2)  # Wait for 2 seconds
