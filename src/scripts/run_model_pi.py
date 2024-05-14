@@ -145,13 +145,6 @@ class model_run_v5(object):
             self.latest_image = image
             self.new_image_flag = True
 
-    def loading_dots(self):
-        while self.loading:
-            for dot in range(1, 4):
-                print(f"{self.green_color_code}\033[F\tLoading Model{'.' * dot}{' ' * (3 - dot)}{self.reset_color_code}\n", end="")
-                time.sleep(0.5)
-        #print("\t\rModel loaded successfully!    ")
-
     def run(self):
 
         print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tGetting Path Vaiables:\n{self.reset_color_code}\n')
@@ -166,21 +159,12 @@ class model_run_v5(object):
         self.loading = True
 
         try:
-            # # Start the loading dots in a separate thread
-            # loading_thread = threading.Thread(target=self.loading_dots)
-            # loading_thread.start()
-
-
             # Model weight
             model_weight = self.get_model_weight()
-            #self.model = YOLOv5(model_weight)
             self.model = YOLO('yolov8n.pt')
-            #print(f"Done")
             self.loading = False
-            # loading_thread.join()
         except:
             self.loading = False
-            # loading_thread.join()
             time.sleep(0.5)
             print(f"\n\t{self.red_color_code}Unable to Load Model{self.reset_color_code}\n")
             sys.exit()
