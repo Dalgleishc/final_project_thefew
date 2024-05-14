@@ -2,22 +2,23 @@ import os, logging, subprocess
 
 import urllib.request
 
-import rospy, cv2, cv_bridge, numpy, threading, time, sys
+import rospy, cv2, cv_bridge, numpy, time, sys
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from yolov5 import YOLOv5
 from std_msgs.msg import Bool
 
-# ANSI escape codes
-red_color_code = "\033[91m"
-reset_color_code = "\033[0m"
-green_color_code = "\033[92m"
-yellow_color_code = "\033[93m"
+from ultralytics import YOLO
 
-run_thread = True
 
 class model_run_v5(object):
     def __init__(self):
+
+        # ANSI escape codes
+        self.red_color_code = "\033[91m"
+        self.reset_color_code = "\033[0m"
+        self.green_color_code = "\033[92m"
+        self.yellow_color_code = "\033[93m"
 
         # Loading for the model
         self.loading = False
@@ -45,11 +46,21 @@ class model_run_v5(object):
 
         logging.getLogger().setLevel(logging.CRITICAL)
 
+        # make image run in main thread
+        self.latest_image = None
+        self.new_image_flag = False
+
         # set up ROS / OpenCV bridge
         self.bridge = cv_bridge.CvBridge()
 
+        # initalize the debugging window
+        cv2.namedWindow("window", 1)
+
+        # subscribe to the robot's RGB camera data stream
+        self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
+
         # set up model
-        self.model = []
+        self.model = None
 
         # initalize the debugging window
         #cv2.namedWindow("window", 1)
@@ -57,10 +68,16 @@ class model_run_v5(object):
         # subscribe to the robot's RGB camera data stream
         #self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
 
+        rospy.init_node("model_loaded")
 
-        ###### for movement.py ######s
-        self.trash_pub = rospy.Publisher('is_trash', Bool, queue_size=10)
-        # self.trash_pub.publish(Bool(data=True))
+        # ###### for movement.py ######s
+        # self.trash_pub = rospy.Publisher('is_trash', Bool, queue_size=10)
+        # # self.trash_pub.publish(Bool(data=True))
+
+        self.model_loaded = rospy.Publisher('model_loaded', Bool, queue_size=10)
+        self.model_loaded.publish(Bool(data=False))
+
+        print(f"\n\tDone Initializing\n")
     
     def get_model_weight(self):
         weights_dir = os.path.join(self.yolo_dir, 'weights')
@@ -116,94 +133,97 @@ class model_run_v5(object):
         # Run the inference process
         subprocess.run(command)
 
-    # def image_callback(self, msg):
-    #     # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
+    def image_callback(self, msg):
+        # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
         
-    #     try:
-    #         image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
-    #         results = self.model(image)
-    #         is_trash = self.process_results(results)
-    #         self.trash_pub.publish(is_trash)
-    #         # Render detections
-    #         cv_image = results.render()[0]
-
-    #         # Display Image
-    #         # cv2.imshow("YOLOv5 Detection", cv_image)
-    #         # cv2.waitKey(3)
-    #     except:
-    #         print(f"Waiting for image")
+        if self.loading == True:
+            pass
+        else:
+            # converts the incoming ROS message to OpenCV format and HSV (hue, saturation, value)
+            image = self.bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            self.latest_image = image
+            self.new_image_flag = True
 
     def loading_dots(self):
-        while self.loading and run_thread:
+        while self.loading:
             for dot in range(1, 4):
-                print(f"{green_color_code}\033[F\tLoading Model{'.' * dot}{' ' * (3 - dot)}{reset_color_code}\n", end="")
+                print(f"{self.green_color_code}\033[F\tLoading Model{'.' * dot}{' ' * (3 - dot)}{self.reset_color_code}\n", end="")
                 time.sleep(0.5)
         #print("\t\rModel loaded successfully!    ")
 
     def run(self):
 
-        print(f'\n\n{green_color_code}{"-" * 100}\n\n\tGetting Path Vaiables:\n{reset_color_code}\n')
-
+        print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tGetting Path Vaiables:\n{self.reset_color_code}\n')
         print(f"\t\tCurrent directory: {self.current_dir}")
         print(f"\t\tSrc directory: {self.src_dir}")
         print(f"\t\tModel directory: {self.model_dir}")
         print(f"\t\tExport directory: {self.export_dir}")
         print(f"\t\tYolo directory: {self.yolo_dir}")
         print(f"\t\tTop directory: {self.top_dir}")
-
-        print(f'\n\n{green_color_code}{"-" * 100}\n{reset_color_code}\n')
+        print(f'\n\n{self.green_color_code}{"-" * 100}\n{self.reset_color_code}\n')
 
         self.loading = True
 
         try:
-            # Start the loading dots in a separate thread
-            loading_thread = threading.Thread(target=self.loading_dots)
-            loading_thread.start()
+            # # Start the loading dots in a separate thread
+            # loading_thread = threading.Thread(target=self.loading_dots)
+            # loading_thread.start()
+
 
             # Model weight
             model_weight = self.get_model_weight()
-
-            self.model = YOLOv5(self.get_model_weight())
-
-            loading_thread.join()
+            #self.model = YOLOv5(model_weight)
+            self.model = YOLO('yolov8n.pt')
+            #print(f"Done")
+            self.loading = False
+            # loading_thread.join()
         except:
             self.loading = False
-            loading_thread.join()
+            # loading_thread.join()
             time.sleep(0.5)
-            print(f"\n\t{red_color_code}Unable to Load Model{reset_color_code}\n")
+            print(f"\n\t{self.red_color_code}Unable to Load Model{self.reset_color_code}\n")
             sys.exit()
-        
+
         # Stop the loading dots
         self.loading = False
     
         source_path =  os.path.abspath(os.path.join((os.path.abspath(os.path.join(self.src_dir, os.pardir))), "can.jpg"))
 
-        device = input(f"\n\t{green_color_code}Type 1 for Macbook Camera\tType 2 for PI Camera{reset_color_code}\n\n\t")
+        device = input(f"\n\t{self.green_color_code}Type 1 for Macbook Camera\tType 2 for PI Camera{self.reset_color_code}\n\n\t")
 
         try:
             if device == '1':
-                print(f"\n\t{yellow_color_code}Running Model with Mackbook Camera:\n{reset_color_code}")
+                print(f"\n\t{self.yellow_color_code}Running Model with Mackbook Camera:\n{self.reset_color_code}")
+                self.model_loaded.publish(Bool(data=True))
                 self.run_live_inference(model_weight)
             else:
-                print(f"\n\t{yellow_color_code}Running Model with PI Camera:\n{reset_color_code}")
-                self.run_pi(source_path)
+                print(f"\n\t{self.yellow_color_code}Running Model with PI Camera:\n{self.reset_color_code}")
+                #self.run_pi(source_path)
+                rate = rospy.Rate(30)  # Set an appropriate rate (e.g., 30Hz)
+                while not rospy.is_shutdown():
+                    if self.new_image_flag:
+                        cv2.imshow("window", self.latest_image)
+                        cv2.waitKey(3)
+                        self.new_image_flag = False
+                    rate.sleep()
             while True:
                 pass
         except KeyboardInterrupt:
-            print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
+            print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{self.reset_color_code}\n')
 
 
         # try:
         #     if device == '1':
-        #         print(f"\n\t{yellow_color_code}Running Model with Mackbook Camera:\n{reset_color_code}")
+        #         print(f"\n\t{self.yellow_color_code}Running Model with Mackbook Camera:\n{self.reset_color_code}")
         #         self.run_live_inference(model_weight)
         #     else:
-        #         print(f"\n\t{yellow_color_code}Running Model with PI Camera:\n{reset_color_code}")
+        #         print(f"\n\t{self.yellow_color_code}Running Model with PI Camera:\n{self.reset_color_code}")
         #         self.run_inference_image(model_weight, source_path)
         #     while True:
         #         pass
         # except KeyboardInterrupt:
-        #     print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
+        #     print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{self.reset_color_code}\n')
 
         # try:
         #     session = fo.launch_app(validation_dataset)
@@ -213,12 +233,14 @@ class model_run_v5(object):
         #         pass
         # except KeyboardInterrupt:
         #     # Handle keyboard interrupt (Ctrl+C)
-        #     print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
+        #     print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{self.reset_color_code}\n')
 
 if __name__ == '__main__':
     try:
         model_run_v5().run()
     except KeyboardInterrupt:
-        run_thread = False
+        red_color_code = "\033[91m"
+        reset_color_code = "\033[0m"
+        
         print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
         sys.exit(0)
