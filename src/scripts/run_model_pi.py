@@ -14,9 +14,12 @@ from PIL import Image as PILImage
 
 from ultralytics import YOLO
 
+from std_msgs.msg import Float32
 
 class run_model(object):
     def __init__(self):
+
+        rospy.init_node("run_model")
 
         # ANSI escape codes
         self.red_color_code = "\033[91m"
@@ -74,7 +77,6 @@ class run_model(object):
 
         print("Starting")
 
-        rospy.init_node("model_loaded")
 
         # ###### for movement.py ######s
         # self.trash_pub = rospy.Publisher('is_trash', Bool, queue_size=10)
@@ -82,6 +84,8 @@ class run_model(object):
 
         self.model_loaded = rospy.Publisher('model_loaded', Bool, queue_size=10)
         self.model_loaded.publish(Bool(data=False))
+
+        self.px_error_pub = rospy.Publisher('px_error', Float32, queue_size=10)
 
         print(f"\n\tDone Initializing\n")
     
@@ -151,6 +155,23 @@ class run_model(object):
             self.latest_image = image
             self.new_image_flag = True
 
+    def send_px(self, boxes_array):
+        if len(boxes_array):
+
+            x_min, y_min, x_max, y_max = boxes_array[0]
+            print(f"x_min:\t{x_min}\tx_max:\t{x_max}")
+            box_width = x_max - x_min
+            x_error = (x_max - (box_width)/2) - 0.5
+            print(f"\n\nPX ERROR: {x_error}")
+
+            #publish this px error
+            px_msg = Float32()
+            px_msg.data = x_error
+            self.px_error_pub.publish(px_msg)
+
+        else:
+            pass
+
     def run(self):
 
         print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tGetting Path Vaiables:\n{self.reset_color_code}\n')
@@ -201,9 +222,11 @@ class run_model(object):
                         )
                     for r in results:
                         print(f"\n\nBox: {r.boxes.xyxyn}")
-                        im_array = r.plot()  # plot a BGR numpy array of predictions
-                        im = PILImage.fromarray(im_array)  # RGB PIL image
-                        print(f"\n\nNp: {im}")
+            
+                        # Convert tensor to NumPy array and extract values
+                        boxes_array = r.boxes.xyxyn.cpu().numpy()
+                        self.send_px(boxes_array)
+                        
                     self.new_image_flag = False
                 rate.sleep()
             # while True:
