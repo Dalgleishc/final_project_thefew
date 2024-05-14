@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os, logging, subprocess
 
 import urllib.request
@@ -11,7 +13,7 @@ from std_msgs.msg import Bool
 from ultralytics import YOLO
 
 
-class model_run_v5(object):
+class run_model(object):
     def __init__(self):
 
         # ANSI escape codes
@@ -67,6 +69,8 @@ class model_run_v5(object):
 
         # subscribe to the robot's RGB camera data stream
         #self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
+
+        print("Starting")
 
         rospy.init_node("model_loaded")
 
@@ -174,28 +178,31 @@ class model_run_v5(object):
     
         source_path =  os.path.abspath(os.path.join((os.path.abspath(os.path.join(self.src_dir, os.pardir))), "can.jpg"))
 
-        device = input(f"\n\t{self.green_color_code}Type 1 for Macbook Camera\tType 2 for PI Camera{self.reset_color_code}\n\n\t")
-
         try:
-            if device == '1':
-                print(f"\n\t{self.yellow_color_code}Running Model with Mackbook Camera:\n{self.reset_color_code}")
-                self.model_loaded.publish(Bool(data=True))
-                self.run_live_inference(model_weight)
-            else:
-                print(f"\n\t{self.yellow_color_code}Running Model with PI Camera:\n{self.reset_color_code}")
-                #self.run_pi(source_path)
-                rate = rospy.Rate(30)  # Set an appropriate rate (e.g., 30Hz)
-                while not rospy.is_shutdown():
-                    if self.new_image_flag:
-                        cv2.imshow("window", self.latest_image)
-                        cv2.waitKey(3)
-                        self.new_image_flag = False
-                    rate.sleep()
-            while True:
-                pass
+            print(f"\n\t{self.yellow_color_code}Running Model with PI Camera:\n{self.reset_color_code}")
+            #self.run_pi(source_path)
+            rate = rospy.Rate(30)  # Set an appropriate rate (e.g., 30Hz)
+            while not rospy.is_shutdown():
+                if self.new_image_flag:
+                    # cv2.imshow("window", self.latest_image)
+                    # cv2.waitKey(3)
+                    self.model.predict(
+                        self.latest_image,
+                        save=False,
+                        stream_buf = True,
+                        # visualize=True,
+                        show=True,
+                        max_det=2,
+                        vid_stream = 30,
+                        classes = [39,40,41]
+                        )
+                    self.new_image_flag = False
+                rate.sleep()
+            # while True:
+            #     pass
         except KeyboardInterrupt:
             print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{self.reset_color_code}\n')
-
+            
 
         # try:
         #     if device == '1':
@@ -221,10 +228,9 @@ class model_run_v5(object):
 
 if __name__ == '__main__':
     try:
-        model_run_v5().run()
+        run_model().run()
     except KeyboardInterrupt:
         red_color_code = "\033[91m"
         reset_color_code = "\033[0m"
         
         print(f'\n\n{red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{reset_color_code}\n')
-        sys.exit(0)
