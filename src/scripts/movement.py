@@ -17,8 +17,8 @@ class Movement:
         ###### Publisher ########
         self.cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.lidar_sub = rospy.Subscriber('/scan', LaserScan, self.lidar_callback)
-        # self.align = rospy.Subscriber('/custom_message_Reece', CustomMessage, self.go_to) TODO
-        # self.is_trash = rospy.Subscriber('/custom_message_Reece', BOOL, self.is_trash) TODO
+        # self.align = rospy.Subscriber('/custom_message_Reece', CustomMessage, self.go_to) TODO see line 44
+        # self.is_trash = rospy.Subscriber('/custom_message_Reece', BOOL, self.is_trash) TODO see line 86
         self.cmd_vel_pub.publish
         self.bridge = CvBridge()
         self.twist = Twist()
@@ -28,14 +28,7 @@ class Movement:
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.is_trash = False
         self.somethinginhand = False
-        # cv2.namedWindow("window", 1)
         self.initialize_robot()
-
-        # Load the model
-        # Correctly setting the path to the model weights
-        # model_weights_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'best.pt')
-        # self.model = YOLOv5.load(model_weights_path)
-
         rospy.on_shutdown(self.stop_robot)
     
 
@@ -83,7 +76,7 @@ class Movement:
                     self.get_next_move(self.state)
 
     ###### custom boolean message from model node ########
-    def trash_callback(self, msg):
+    def is_trash(self, msg):
         self.is_trash = msg.data
         rospy.loginfo("Trash detection updated: {}".format(self.is_trash))
 
