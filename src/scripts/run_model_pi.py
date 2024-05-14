@@ -5,10 +5,12 @@ import os, logging, subprocess
 import urllib.request
 
 import rospy, cv2, cv_bridge, numpy, time, sys
+
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Twist
 from yolov5 import YOLOv5
 from std_msgs.msg import Bool
+from PIL import Image as PILImage
 
 from ultralytics import YOLO
 
@@ -186,16 +188,22 @@ class run_model(object):
                 if self.new_image_flag:
                     # cv2.imshow("window", self.latest_image)
                     # cv2.waitKey(3)
-                    self.model.predict(
+                    results = self.model.predict(
                         self.latest_image,
+                        conf = 0.1,
                         save=False,
-                        stream_buf = True,
+                        stream_buffer = True,
                         # visualize=True,
                         show=True,
-                        max_det=2,
-                        vid_stream = 30,
+                        max_det=1,
+                        vid_stride = 10,
                         classes = [39,40,41]
                         )
+                    for r in results:
+                        print(f"\n\nBox: {r.boxes.xyxyn}")
+                        im_array = r.plot()  # plot a BGR numpy array of predictions
+                        im = PILImage.fromarray(im_array)  # RGB PIL image
+                        print(f"\n\nNp: {im}")
                     self.new_image_flag = False
                 rate.sleep()
             # while True:
