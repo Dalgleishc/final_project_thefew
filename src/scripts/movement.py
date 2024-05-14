@@ -122,6 +122,9 @@ class Movement:
         return min_distance, min_angle
 
     def approach_closest_object(self):
+        '''
+        ueses lidar data to find the closest object
+        '''
         print("Approaching the closest object.")
         while not rospy.is_shutdown():
             closest_object = self.find_closest_object()
