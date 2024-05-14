@@ -1,6 +1,25 @@
 <launch>
-    <!-- <node name="republish" pkg="image_transport" type="republish" args="compressed in:=raspicam_node/image raw out:=camera/rgb/image_raw" output="screen"/> -->
-    <!-- <include file="$(find turtlebot3_manipulation_bringup)/launch/turtlebot3_manipulation_bringup.launch"/> -->
-    <include file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch"/>
-    <node name="movement" pkg="final_project_thefew" type="movement.py" output="screen"/>
+    <!-- Set the global logging level to ERROR -->
+    <rosparam command="load">
+        /rosconsole/config/logger_level: error
+    </rosparam>
+
+    <!-- Set specific logging levels for nodes -->
+    <node name="republish" pkg="image_transport" type="republish" args="compressed in:=raspicam_node/image raw out:=camera/rgb/image_raw" output="log">
+        <param name="rosconsole/config/logger_level" value="error"/>
+    </node> 
+    <node name="run_model" pkg="final_project_thefew" type="run_model_pi.py" output="screen"></node>
+    <node name="movement" pkg="final_project_thefew" type="movement.py" output="screen"></node>
+
+    <!-- Include other launch files and set their logging levels -->
+    <include file="$(find turtlebot3_manipulation_bringup)/launch/turtlebot3_manipulation_bringup.launch">
+        <rosparam command="load">
+            /rosconsole/config/logger_level: error
+        </rosparam>
+    </include>
+    <include file="$(find turtlebot3_manipulation_moveit_config)/launch/move_group.launch">
+        <rosparam command="load">
+            /rosconsole/config/logger_level: error
+        </rosparam>
+    </include>
 </launch>
