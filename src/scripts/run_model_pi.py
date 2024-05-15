@@ -157,7 +157,9 @@ class run_model(object):
             self.px_error_pub.publish(px_msg)
 
         else:
-            pass
+            px_msg = Float32()
+            px_msg.data = 2
+            self.px_error_pub.publish(px_msg)
 
     def publish_model_state(self, value):
         # Create a Bool message
@@ -217,7 +219,7 @@ class run_model(object):
                         save=False,
                         stream_buffer = True,
                         # visualize=True,
-                        show=True,
+                        show=False,
                         max_det=1,
                         vid_stride = 10,
                         classes = [39,40,41]
