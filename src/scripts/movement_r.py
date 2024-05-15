@@ -7,8 +7,8 @@ import os
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
-import cv2
-from cv_bridge import CvBridge
+# import cv2
+# from cv_bridge import CvBridge
 import moveit_commander
 import math
 from std_msgs.msg import Float32
@@ -117,25 +117,10 @@ class Movement:
             processed_ranges = [r if r != math.inf else max_range for r in msg.ranges]
             # Get the first 10 and last 10 range values
             front_index = (len(processed_ranges)-1) // 2
-            front_ranges = processed_ranges[front_index-10:front_index+10]
+            front_ranges = processed_ranges[front_index-5:front_index+5]
 
         # Calculate the minimum distance in the front range
         self.front_distance = min(front_ranges)
-
-    # def find_closest_object(self):
-    #     if self.current_scan is None:
-    #         print("No LIDAR data")
-    #         return None
-    #     ranges = self.current_scan.ranges
-    #     min_distance = float('inf')
-    #     min_angle = None
-    #     for i, distance in enumerate(ranges):
-    #         if 0.05 < distance < min_distance:
-    #             min_distance = distance
-    #             min_angle = i
-    #     if min_angle is None:
-    #         return None
-    #     return min_distance, min_angle
 
     def get_px(self, msg):
         self.px_error = msg.data
@@ -169,23 +154,26 @@ class Movement:
 
         # does not see anything
         if self.px_error == 2:
-            self.send_movement(0,0.05)
+            self.send_movement(0,0.1)
         
         # if not aligned
-        elif abs(angular) > 0.05 and self.px_error <= 1:
-            self.send_movement(0, angular)
+        # elif abs(angular) > 0.05 and self.px_error <= 1:
+        #     self.send_movement(0, angular)
 
         # is aligned
+        # elif self.px_error <= 1 and abs(angular) <= 0.05:
         else:
             # far from object, getting color
-            if self.front_distance > 0.22:
+            if self.front_distance > 0.252:
                 self.send_movement(min(0.1, 0.1 * self.front_distance), angular / 5)
 
             # close to object
-            else:
+            elif self.front_distance <= 0.23 and abs(self.px_error) <= 0.08:
+                print('stop')
                 self.send_movement(0, 0)
                 self.pick_up_object()
-                rospy.sleep(2)
+                rospy.sleep(1)
+                self.reset_arms()
 
     def pick_up_object(self):
         print("Approaching the object...")
@@ -210,19 +198,6 @@ class Movement:
         rospy.sleep(2)
         self.something_in_hand = False
         self.reset_arms()
-
-    # def reset(self):
-    #     print("Resetting to search for another object...")
-    #     # Spin the robot to search for another object
-    #     for _ in range(12):  # Spin for a fixed number of iterations
-    #         self.twist.angular.z = 0.5  # Set a moderate spinning speed
-    #         self.cmd_vel_pub.publish(self.twist)
-    #         rospy.sleep(0.5)  # Spin for half a second per iteration
-    #     self.twist.angular.z = 0  # Stop spinning
-    #     self.cmd_vel_pub.publish(self.twist)
-    #     print("Search reset complete, looking for new objects.")
-    #     # After spinning, attempt to approach the closest object again
-    #     self.run()
 
     def model_loading(self, msg):
         self.loaded = msg.data
