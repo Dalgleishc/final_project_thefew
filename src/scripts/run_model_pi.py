@@ -146,10 +146,10 @@ class run_model(object):
         if len(boxes_array):
 
             x_min, y_min, x_max, y_max = boxes_array[0]
-            print(f"x_min:\t{x_min}\tx_max:\t{x_max}")
+            # print(f"x_min:\t{x_min}\tx_max:\t{x_max}")
             box_width = x_max - x_min
             x_error = (x_max - (box_width)/2) - 0.5
-            print(f"\n\nPX ERROR: {x_error}")
+            # print(f"\n\nPX ERROR: {x_error}")
 
             #publish this px error
             px_msg = Float32()
@@ -212,6 +212,7 @@ class run_model(object):
                     # cv2.waitKey(3)
                     results = self.model.predict(
                         self.latest_image,
+                        verbose = False,
                         conf = 0.1,
                         save=False,
                         stream_buffer = True,

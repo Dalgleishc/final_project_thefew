@@ -9,7 +9,7 @@
         <param name="rosconsole/config/logger_level" value="error"/>
     </node> 
     <node name="run_model" pkg="final_project_thefew" type="run_model_pi.py" output="screen"></node>
-    <node name="movement" pkg="final_project_thefew" type="movement.py" output="screen"></node>
+    <node name="movement" pkg="final_project_thefew" type="movement_r.py" output="screen"></node>
 
     <!-- Include other launch files and set their logging levels -->
     <include file="$(find turtlebot3_manipulation_bringup)/launch/turtlebot3_manipulation_bringup.launch">

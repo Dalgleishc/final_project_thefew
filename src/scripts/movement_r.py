@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 
 import rospy
+import sys
+import logging
+import os
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
@@ -21,6 +24,11 @@ class Movement:
         self.reset_color_code = "\033[0m"
         self.green_color_code = "\033[92m"
         self.yellow_color_code = "\033[93m"
+        self.bold_start = "\033[1m"
+        self.bold_end = "\033[0m"
+
+        # for hand
+        self.something_in_hand = False
         
         # For loading the model
         self.loaded = False
@@ -43,29 +51,51 @@ class Movement:
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
 
+        self.move_group_arm.go([0, 0, 0, 0], wait=False)
+        self.move_group_gripper.go([0.01, 0.01], wait=False)
+        self.move_group_arm.stop()
+        self.move_group_gripper.stop()
+
 
         self.initialize_robot()
         self.px_error = None
 
-        self.somethinginhand = False
-
         rospy.on_shutdown(self.stop_robot)
 
+    def send_movement(self, velocity, angular):
+        """
+        Sends a movement to the bot with a given forward (x-axis) velocity and angular velocity (z-axis) for convinience.
+        """
+        #set velocity arguments
+        move_cmd = Twist()
+        move_cmd.linear.x = velocity
+        move_cmd.angular.z = angular
+        # send velocity command
+        self.velocity_publisher.publish(move_cmd)
+        rospy.sleep(0.05)
+
     def stop_robot(self):
-        print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tShutting down: Stopping the robot...\n{self.reset_color_code}\n')
-        self.twist.linear.x = 0
-        self.twist.angular.z = 0
-        self.cmd_vel_pub.publish(self.twist)
-        print(f'\n\n{self.green_color_code}\n\n\tDone\n{self.reset_color_code}\n')
+        os.system('clear')
+        print(f'\n{self.red_color_code}{"-" * 100}\n\n\tShutting down: Stopping the robot:\n{self.reset_color_code}')
+        self.send_movement(0,0)
+        print(f'\n{self.green_color_code}\tDone\n\n{"-" * 100}{self.reset_color_code}\n')
         self.reset_arms()
 
     def initialize_robot(self):
-        print(f'\n\n{self.green_color_code}{"-" * 100}\n\n\tInitializing robot arm and gripper to default states...\n{self.reset_color_code}\n')        
+        print(f'\n{self.green_color_code}{"-" * 100}\n\n\tInitializing robot arm and gripper to default states:\n{self.reset_color_code}')        
         self.move_group_arm.go([0, 0, 0, 0], wait=True)
         self.move_group_gripper.go([0.01, 0.01], wait=True)
         self.move_group_arm.stop()
         self.move_group_gripper.stop()
-        print(f'\n\n{self.green_color_code}\n\n\tDone\n{self.reset_color_code}\n')
+        print(f'\n{self.green_color_code}\tDone\n\n{"-" * 100}{self.reset_color_code}\n')
+
+    def reset_arms(self):
+        print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tResetting arm angles:\n{self.reset_color_code}')
+        self.move_group_arm.go([0, 0, 0, 0], wait=False)
+        self.move_group_gripper.go([0.01, 0.01], wait=False)
+        self.move_group_arm.stop()
+        self.move_group_gripper.stop()
+        print(f'\n{self.green_color_code}\tDone\n\n{"-" * 100}{self.reset_color_code}\n')
 
     def scan_callback(self, msg):
         """
@@ -108,7 +138,20 @@ class Movement:
 
     def get_px(self, msg):
         self.px_error = msg.data
-        print(f"px error: {px_error}")
+
+    def screen_print(self):
+
+        # Set the logger level to ERROR
+        rospy.set_param('/rosconsole/logger_level', 'error')
+        logging.getLogger('rosout').setLevel(logging.ERROR)
+
+        print(f"\n\n{self.green_color_code}{self.bold_start}TRASH BOT:{self.bold_end}{self.reset_color_code}\n\n{'-' * 100}\n")
+        
+        print(f"{self.yellow_color_code}\tPX Error: {self.reset_color_code}{self.px_error}\n")
+        
+        print(f"{self.yellow_color_code}\tFront Distance: {self.reset_color_code}{self.front_distance}\n")        
+        
+        print(f"{'-' * 100}\n \033[{20}F", end='')
 
     def go_to(self):
         """
@@ -116,6 +159,9 @@ class Movement:
         We use the front_distance attribute which is updated by LiDAR to know when we are close distance wise,
         while continuously correcting our angle based on where horizontal error.
         """
+
+        self.screen_print()
+
         #cx is the x position of where the object is
         #the robot needs to turn toward the object (have cx be in the middle of the screen)
         #then the robot needs to aproach the robot till until it is 0.1m away (scan lidar)
@@ -139,86 +185,70 @@ class Movement:
             # close to object
             else:
                 self.send_movement(0, 0)
-                if not self.something_in_hand:
-                    self.pick_up_object()
-                else:
-                    self.drop_object()
-                    self.something_in_hand = False
+                # if not self.something_in_hand:
+                #     self.pick_up_object()
+                rospy.sleep(2)
 
-                    self.send_movement(-0.5, 0)
-                    rospy.sleep(2)
+    # def pick_up_object(self):
+    #     print("Approaching the object...")
+    #     # Extend arm forward and as low as possible while respecting joint limits 
+    #     move_downward_position = [0, math.radians(73), math.radians(-27), math.radians(-12)]  # Extend arm downwards
+    #     self.move_group_arm.go(move_downward_position, wait=True)
+    #     rospy.sleep(4)  # Wait for the arm to reach the extended position
+    #     self.move_group_arm.stop()
+    #     print("downward position reached.")
+    #     self.move_group_gripper.go([-0.01, -0.01], wait=True)  # maximum closure within limits
+    #     rospy.sleep(2)  # Allow time for the gripper to close
+    #     self.move_group_gripper.stop()
+    #     print("Gripper clenched. Lifting the object...")
+    #     self.something_in_hand = True
+    #     lift_position = [0, math.radians(-48), math.radians(-30), math.radians(-101)]  # Retract and lift the arm
+    #     self.move_group_arm.go(lift_position, wait=True)
+    #     rospy.sleep(6)  # Wait for the arm to lift to the safe position
+    #     self.move_group_arm.stop()
+    #     print("Object lifted.")
+    #     # Open the gripper to throw away
+    #     self.move_group_gripper.go([0.01, 0.01], wait=True)
+    #     rospy.sleep(2)
+    #     self.something_in_hand = False
+    #     self.reset_arms()
 
-
-    def send_movement(self, velocity, angular):
-        """
-        Sends a movement to the bot with a given forward (x-axis) velocity and angular velocity (z-axis) for convinience.
-        """
-        #set velocity arguments
-        move_cmd = Twist()
-        move_cmd.linear.x = velocity
-        move_cmd.angular.z = angular
-        # send velocity command
-        self.velocity_publisher.publish(move_cmd)
-        rospy.sleep(0.05)
-
-    def pick_up_object(self):
-        print("Approaching the object...")
-        # Extend arm forward and as low as possible while respecting joint limits 
-        move_downward_position = [0, math.radians(73), math.radians(-27), math.radians(-12)]  # Extend arm downwards
-        self.move_group_arm.go(move_downward_position, wait=True)
-        rospy.sleep(4)  # Wait for the arm to reach the extended position
-        self.move_group_arm.stop()
-        print("downward position reached.")
-        self.move_group_gripper.go([-0.01, -0.01], wait=True)  # maximum closure within limits
-        rospy.sleep(2)  # Allow time for the gripper to close
-        self.move_group_gripper.stop()
-        print("Gripper clenched. Lifting the object...")
-        self.somethinginhand = True
-        lift_position = [0, math.radians(-48), math.radians(-30), math.radians(-101)]  # Retract and lift the arm
-        self.move_group_arm.go(lift_position, wait=True)
-        rospy.sleep(6)  # Wait for the arm to lift to the safe position
-        self.move_group_arm.stop()
-        print("Object lifted.")
-        # Open the gripper to throw away
-        self.move_group_gripper.go([0.01, 0.01], wait=True)
-        rospy.sleep(2)
-        self.somethinginhand = False
-        self.reset_arms()
-        self.reset()
-
-    def reset(self):
-        print("Resetting to search for another object...")
-        # Spin the robot to search for another object
-        for _ in range(12):  # Spin for a fixed number of iterations
-            self.twist.angular.z = 0.5  # Set a moderate spinning speed
-            self.cmd_vel_pub.publish(self.twist)
-            rospy.sleep(0.5)  # Spin for half a second per iteration
-        self.twist.angular.z = 0  # Stop spinning
-        self.cmd_vel_pub.publish(self.twist)
-        print("Search reset complete, looking for new objects.")
-        # After spinning, attempt to approach the closest object again
-        self.run()
-
-    def reset_arms(self):
-        print("resetting arm angles")
-        self.move_group_arm.go([0, 0, 0, 0], wait=True)
-        self.move_group_gripper.go([0.01, 0.01], wait=True)
-        self.move_group_arm.stop()
-        self.move_group_gripper.stop()
-        print("Done resetting arm angles")
+    # def reset(self):
+    #     print("Resetting to search for another object...")
+    #     # Spin the robot to search for another object
+    #     for _ in range(12):  # Spin for a fixed number of iterations
+    #         self.twist.angular.z = 0.5  # Set a moderate spinning speed
+    #         self.cmd_vel_pub.publish(self.twist)
+    #         rospy.sleep(0.5)  # Spin for half a second per iteration
+    #     self.twist.angular.z = 0  # Stop spinning
+    #     self.cmd_vel_pub.publish(self.twist)
+    #     print("Search reset complete, looking for new objects.")
+    #     # After spinning, attempt to approach the closest object again
+    #     self.run()
 
     def model_loading(self, msg):
         self.loaded = msg.data
-        print(f"Is the model loaded?: {self.loaded}\n")
+        # print(f"Is the model loaded?: {self.loaded}\n")
 
     def run(self):
-        while not self.loaded:
-            print(f"Waiting for model to load\n")
         
-        print("Starting the robot...")
-        self.reset_arms()
-        rospy.sleep(2)  # Wait for 2 seconds
-        self.approach_closest_object()
+        self.send_movement(0,0)
+        
+        try:    
+            while not self.loaded:
+                # print(f"\033[F Waiting for model to load...")
+                pass
+        
+            rospy.sleep(2)  # Wait for 2 seconds
+
+            os.system('clear')
+
+            while not rospy.is_shutdown():
+                self.go_to()
+                rospy.sleep(0.1)
+        except KeyboardInterrupt:
+            print(f'\n\n{self.red_color_code}{"-" * 100}\n\n\tSession terminated by user\n\n{"-" * 100}{self.reset_color_code}\n')
+            sys.exit(0)
 
 if __name__ == "__main__":
     try:
