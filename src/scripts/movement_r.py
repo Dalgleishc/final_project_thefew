@@ -47,7 +47,8 @@ class Movement:
 
         self.front_distance = 3.5
 
-        self.stop_distance = 0.2
+        self.stop_distance = 0.237
+        self.wiggle_room = 0.073
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
 
@@ -154,21 +155,25 @@ class Movement:
 
         # does not see anything
         if self.px_error == 2:
-            self.send_movement(0,0.1)
+            self.send_movement(0,0.15)
         
+
+        ########## this was breaking the code ##########
         # if not aligned
         # elif abs(angular) > 0.05 and self.px_error <= 1:
         #     self.send_movement(0, angular)
 
         # is aligned
         # elif self.px_error <= 1 and abs(angular) <= 0.05:
+
+        ############ cup is detected, alignment logic already implemented ############
         else:
             # far from object, getting color
-            if self.front_distance > 0.252:
+            if self.front_distance > 0.25:
                 self.send_movement(min(0.1, 0.1 * self.front_distance), angular / 5)
 
-            # close to object
-            elif self.front_distance <= 0.23 and abs(self.px_error) <= 0.08:
+        ########## pick up logic ###########
+            elif self.front_distance <= self.stop_distance and abs(self.px_error) <= 0.073: # subject to change
                 print('stop')
                 self.send_movement(0, 0)
                 self.pick_up_object()
