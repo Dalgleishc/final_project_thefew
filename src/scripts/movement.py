@@ -32,7 +32,7 @@ class Movement:
         self.move_group_arm = moveit_commander.MoveGroupCommander("arm")
         self.move_group_gripper = moveit_commander.MoveGroupCommander("gripper")
         self.is_trash = False
-        self.front_distance = None
+        self.front_distance = 3.5
         self.initialize_robot()
         self.px_error = None
         self.somethinginhand = False
@@ -106,6 +106,24 @@ class Movement:
     ###### Subscriber ########
     def lidar_callback(self, msg):
         self.current_scan = msg
+        if len(msg.ranges) < 400:
+            #LDS-01 processing
+            max_range = 3.5
+            processed_ranges = [r if r != 0.0 else max_range for r in msg.ranges]
+            #angle_offset = math.pi
+            # Get the first 10 and last 10 range values
+            front_ranges = processed_ranges[:10] + processed_ranges[-10:]
+
+        else:
+            #the other one processing
+            max_range = 12
+            processed_ranges = [r if r != math.inf else max_range for r in msg.ranges]
+            # Get the first 10 and last 10 range values
+            front_index = (len(processed_ranges)-1) // 2
+            front_ranges = processed_ranges[front_index-10:front_index+10]
+
+        # Calculate the minimum distance in the front range
+        self.front_distance = min(front_ranges)
 
     def find_closest_object(self):
         if self.current_scan is None:
