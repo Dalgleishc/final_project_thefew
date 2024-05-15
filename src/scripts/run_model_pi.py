@@ -61,7 +61,7 @@ class run_model(object):
         self.bridge = cv_bridge.CvBridge()
 
         # initalize the debugging window
-        cv2.namedWindow("window", 1)
+        #cv2.namedWindow("window", 1)
 
         # subscribe to the robot's RGB camera data stream
         self.image_sub = rospy.Subscriber('camera/rgb/image_raw', Image, self.image_callback)
@@ -222,7 +222,7 @@ class run_model(object):
                         classes = [39,40,41]
                         )
                     for r in results:
-                        print(f"\n\nBox: {r.boxes.xyxyn}")
+                        #print(f"\n\nBox: {r.boxes.xyxyn}")
             
                         # Convert tensor to NumPy array and extract values
                         boxes_array = r.boxes.xyxyn.cpu().numpy()
