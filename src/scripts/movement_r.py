@@ -7,13 +7,9 @@ import os
 from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
-# import cv2
-# from cv_bridge import CvBridge
 import moveit_commander
 import math
 from std_msgs.msg import Float32
-# from yolov5 import YOLOv5
-# import os
 
 class Movement:
     def __init__(self):
@@ -147,9 +143,6 @@ class Movement:
 
         self.screen_print()
 
-        #cx is the x position of where the object is
-        #the robot needs to turn toward the object (have cx be in the middle of the screen)
-        #then the robot needs to aproach the robot till until it is 0.1m away (scan lidar)
         # convert pixal error to angular error
         angular = -1 * (self.px_error*2)
 
