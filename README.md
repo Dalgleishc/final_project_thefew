@@ -12,3 +12,4 @@ tutorial: https://pytorch.org/tutorials/intermediate/torchvision_tutorial.html
 
 https://github.com/Dalgleishc/final_project_thefew/assets/114620452/24c61115-2f4a-4f2e-9ab2-a61d19d916ba
 
+Note: Some of the bottles are too wide for the gripper. 
