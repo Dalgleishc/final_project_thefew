@@ -148,7 +148,7 @@ class Movement:
 
         # does not see anything
         if self.px_error == 2:
-            self.send_movement(0,0.15)
+            self.send_movement(0,0.1)
         
 
         ########## this was breaking the code ##########
@@ -188,7 +188,7 @@ class Movement:
         self.something_in_hand = True
         lift_position = [0, math.radians(-48), math.radians(-45), math.radians(-101)]  # Retract and lift the arm
         self.move_group_arm.go(lift_position, wait=True)
-        rospy.sleep(6)  # Wait for the arm to lift to the safe position
+        rospy.sleep(8)  # Wait for the arm to lift to the safe position
         self.move_group_arm.stop()
         print("Object lifted.")
         # Open the gripper to throw away
