@@ -87,6 +87,49 @@ The primary goal of this project is to develop an autonomous trash-collecting ro
 - Clone your project repository to your workspace.
 
 ### Step-by-Step Instructions
+Terminal 1: ROS Master Start the ROS Master: 
+Input: roscore 
+This command initializes the ROS Master, which coordinates the communication between ROS nodes. 
+Terminal 2: Movement Controller 
+Navigate to the directory containing your movement code: 
+Input: cd ~/catkin_ws/src/final_project_thefew/scripts 
+
+Run the Movement Controller node: python3 movement.py 
+This script controls the robot's navigation and manipulation tasks. 
+
+Terminal 3: YOLOv5 Model for Trash Detection Navigate to the directory containing your YOLOv5 model code: 
+Input:  cd ~/catkin_ws/src/final_project_thefew/scripts 
+
+
+Run the YOLOv5 model node:  python3 model_run_v5.py 
+This script processes the camera feed, detects trash using the YOLOv5 model, and publishes detection results. 
+
+Terminal 4: MoveIt Setup (if required) Start MoveIt for the manipulator arm:
+Input: roslaunch turtlebot3_manipulation_moveit_config move_group.launch 
+This command launches MoveIt, which handles motion planning for the Open Manipulator arm. 
+
+Terminal 5: RViz (Optional, for Visualization) Launch RViz for visualization: 
+Input: roslaunch turtlebot3_manipulation_moveit_config moveit_rviz.launch 
+This command launches RViz, a 3D visualization tool that allows you to visualize the robot's movements and sensor data.
+
+
+## Challenges, Future Work, and Takeaways
+
+### Challenges
+
+The main challenge with the movement of picking up trash is the limited range of the gripper, which restricts us to picking up cans and other slender types of bottles. Additionally, the latency between running the model on the TurtleBot's camera and publishing the data, which is necessary to align the arm with the trash items, proved problematic. Using the correct arm movements and maintaining a constant distance with the LIDAR to determine how far to reach was also difficult and could be improved.
+
+### Future Work
+
+Future work will focus on implementing a more sophisticated method for determining if an object is detected, moving beyond the current reliance on `px_error`. We aim to add functionality that allows the robot to throw away objects regardless of their resting state, enhancing its versatility. Additionally, creating an environment with less noise will be crucial to ensure that the robot's functionality is not compromised. Finally, we will explore less computationally expensive methods for the model to parse through frames, which will reduce latency and improve overall performance.
+
+### Takeaways
+
+- Throughout the project, frequent testing of each component (trash detection, navigation, and manipulation) allowed us to identify and fix issues early, leading to a more reliable final product.
+- Iterative testing helps catch bugs that may not be evident during the initial development stages.
+- Effective communication ensured that all our team members were aligned on project goals, progress, and any issues that arose.
+- Defining roles and responsibilities early helped prevent overlap and ensured that each of us focused on our strengths, leading to a more efficient and productive group collaboration.
+
 
 
 
