@@ -76,7 +76,7 @@ The primary goal of this project is to develop an autonomous trash-collecting ro
   - `run()`, `initialize_robot()`, `approach_closest_object()`, `pick_up_object()`: Key methods for robot initialization, navigation, and manipulation.
 
 ## ROS Node Diagram
-<img width="562" alt="Screenshot 2024-05-23 at 10 03 38 AM" src="https://github.com/Dalgleishc/final_project_thefew/assets/109634431/f7fb6933-927b-47f2-8a25-502d003203b9">
+<img width="563" alt="Screenshot 2024-05-23 at 10 09 49 AM" src="https://github.com/Dalgleishc/final_project_thefew/assets/109634431/3ed96396-9fc4-4cae-814b-74ad95b70abd">
 
 
 
